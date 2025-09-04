@@ -4,8 +4,11 @@ import 'package:flame/components.dart';
 class Shooter extends PositionComponent {
   final int lanes;
   final double laneWidth;
+  @override
   final double y;
+  @override
   final double width;
+  @override
   final double height;
 
   Shooter({

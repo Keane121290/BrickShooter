@@ -9,6 +9,7 @@ class BottomRow extends PositionComponent {
   final double rowVerticalGap;
   final double laneInnerPadding;
   final double yBottom;
+  @override
   final double width;
   final ui.Color color;
   final Set<int> filledLanes;

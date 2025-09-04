@@ -219,7 +219,7 @@ class MyGame extends FlameGame with TapDetector {
         targetY: targetY!,
         onArrive: () {
           if (!target!.filledLanes!.contains(lane)) {
-            target!.fillLane(lane);
+            target.fillLane(lane);
             _repackBelt();
           }
         },
