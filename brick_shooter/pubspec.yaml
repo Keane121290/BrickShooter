@@ -1,0 +1,38 @@
+name: brick_shooter
+description: Simple 2D mini game built with Flutter + Flame.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Game stack
+  flame: ^1.32.0
+  flame_audio: ^2.11.10
+
+  # Persistence (high score / settings)
+  shared_preferences: ^2.5.3
+
+  # (Optional) iOS-style icons for quick UI work; safe to keep
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Prepare folders even if empty yet (create these in your project so future assets resolve cleanly)
+  assets:
+
+  # Example for custom fonts later (leave commented until you add files)
+  # fonts:
+  #   - family: GameFont
+  #     fonts:
+  #       - asset: assets/fonts/GameFont-Regular.ttf
