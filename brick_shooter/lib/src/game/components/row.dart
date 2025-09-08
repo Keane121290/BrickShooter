@@ -1,149 +1,127 @@
+// lib/src/game/components/row.dart
 import 'dart:ui' as ui;
 import 'package:flame/components.dart';
+import 'package:flame/effects.dart';          // 👈 ScaleEffect, EffectController
+import 'package:flutter/animation.dart';      // 👈 Curves
 import 'brick_box.dart';
 
 class FallingRow extends PositionComponent {
-  // Generelt
   final int lanes;
   final double laneWidth;
   final double rowHeight;
-  final double pad;              // lik margin på alle kanter av brikkene
+  final double pad;
   final ui.Color color;
-
-  /// Global speed-funksjon levert fra spillet (px/s)
   final double Function() getSpeed;
 
-  // Geometri for kollisjon
   double get brickHeight => rowHeight - 2 * pad;
-  double bottomY = 0; // denne komponentens "y" = bunn av brikkene (anchor=bottomLeft)
+  double get brickWidth => laneWidth - 2 * pad;
 
-  // Modus A: gap-rad (vanlig bånd)
-  final int? gapLane;
+  double bottomY = 0;
 
-  // Modus B: custom-fylte lanes (spiller-generert rad)
-  Set<int>? filledLanes; // muterbar slik at vi kan fylle inn flere lanes
+  final Set<int> filledLanes;
+  final Set<int> reservedLanes = {};
+  final Map<int, BrickBox> _ghosts = {};
+  bool pendingClear = false;
 
-  bool get isGapRow => gapLane != null;
-
-  // ---- Konstruktører ----
-  FallingRow._internal({
+  FallingRow({
     required this.lanes,
     required this.laneWidth,
     required this.rowHeight,
     required this.pad,
-    required this.getSpeed,
     required this.color,
+    required this.getSpeed,
     required this.bottomY,
-    required this.gapLane,
-    required this.filledLanes,
-  }) {
-    // Viktig: forenkler kollisjon – radens "y" *er* bunn av brikkene
+    required Set<int> filledLanes,
+  }) : filledLanes = Set<int>.from(filledLanes) {
     anchor = Anchor.bottomLeft;
     position = Vector2(0, bottomY);
     size = Vector2(laneWidth * lanes, rowHeight);
-  }
-
-  factory FallingRow.gapRow({
-    required int lanes,
-    required double laneWidth,
-    required double rowHeight,
-    required double pad,
-    required double bottomY,
-    required double Function() getSpeed, // <—
-    required ui.Color color,
-    required int gapLane,
-  }) {
-    assert(gapLane >= 0 && gapLane < lanes);
-    return FallingRow._internal(
-      lanes: lanes,
-      laneWidth: laneWidth,
-      rowHeight: rowHeight,
-      pad: pad,
-      getSpeed: getSpeed,
-      color: color,
-      bottomY: bottomY,
-      gapLane: gapLane,
-      filledLanes: null,
-    );
-  }
-
-  factory FallingRow.customRow({
-    required int lanes,
-    required double laneWidth,
-    required double rowHeight,
-    required double pad,
-    required double bottomY,
-    required double Function() getSpeed, // <—
-    required ui.Color color,
-    required Set<int> filledLanes,
-  }) {
-    assert(filledLanes.every((l) => l >= 0 && l < lanes));
-    return FallingRow._internal(
-      lanes: lanes,
-      laneWidth: laneWidth,
-      rowHeight: rowHeight,
-      pad: pad,
-      getSpeed: getSpeed,
-      color: color,
-      bottomY: bottomY,
-      gapLane: null,
-      filledLanes: Set<int>.from(filledLanes),
-    );
+    priority = 20;
   }
 
   @override
   Future<void> onLoad() async {
-    final double w = laneWidth - 2 * pad;   // brikkebredde
-    final double h = brickHeight;           // brikkehøyde
-    final double top = -h;                  // anchor = bottomLeft
+    final h = brickHeight;
+    final w = brickWidth;
+    final top = -h;
 
-    if (isGapRow) {
-      for (int lane = 0; lane < lanes; lane++) {
-        if (lane == gapLane) continue;
-        final double x = lane * laneWidth + pad;
-        add(
-          BrickBox(color: color, radius: 18, borderWidth: 3)
-            ..position = Vector2(x, top)
-            ..size = Vector2(w, h),
-        );
-      }
-    } else {
-      for (final lane in filledLanes!) {
-        final double x = lane * laneWidth + pad;
-        add(
-          BrickBox(color: color, radius: 18, borderWidth: 3)
-            ..position = Vector2(x, top)
-            ..size = Vector2(w, h),
-        );
-      }
+    for (final lane in filledLanes) {
+      final x = lane * laneWidth + pad;
+      add(BrickBox(color: color, radius: 18, borderWidth: 3)
+        ..position = Vector2(x, top)
+        ..size = Vector2(w, h),
+      );
     }
   }
 
-  /// Fyller inn en lane i en **custom** spiller–rad (ingen effekt for gap-rad).
-  void fillLane(int lane) {
-    if (isGapRow) return;
-    if (lane < 0 || lane >= lanes) return;
-    if (filledLanes!.contains(lane)) return;
+  bool hasFreeLane(int lane) {
+    return !filledLanes.contains(lane) && !reservedLanes.contains(lane);
+  }
 
-    filledLanes!.add(lane);
+  bool reserveLane(int lane, {ui.Color? ghostColor}) {
+    if (!hasFreeLane(lane)) return false;
+    reservedLanes.add(lane);
 
-    final double w = laneWidth - 2 * pad;
-    final double h = brickHeight;
-    final double top = -h;
-    final double x = lane * laneWidth + pad;
+    final h = brickHeight;
+    final w = brickWidth;
+    final top = -h;
+    final x = lane * laneWidth + pad;
 
-    add(
-      BrickBox(color: color, radius: 18, borderWidth: 3)
-        ..position = Vector2(x, top)
-        ..size = Vector2(w, h),
+    final ghost = BrickBox(
+      color: (ghostColor ?? color).withOpacity(0.45),
+      radius: 18,
+      borderWidth: 2,
+    )
+      ..position = Vector2(x, top)
+      ..size = Vector2(w, h);
+
+    _ghosts[lane] = ghost;
+    add(ghost);
+    return true;
+  }
+
+  void unreserveLane(int lane) {
+    reservedLanes.remove(lane);
+    final g = _ghosts.remove(lane);
+    g?.removeFromParent();
+  }
+
+  bool fillLane(int lane) {
+    reservedLanes.remove(lane);
+    final g = _ghosts.remove(lane);
+    g?.removeFromParent();
+
+    if (filledLanes.contains(lane)) return filledLanes.length == lanes;
+    filledLanes.add(lane);
+
+    final h = brickHeight;
+    final w = brickWidth;
+    final top = -h;
+    final x = lane * laneWidth + pad;
+
+    final box = BrickBox(color: color, radius: 18, borderWidth: 3)
+      ..position = Vector2(x, top)
+      ..size = Vector2(w, h);
+
+    add(box);
+
+    // 👇 Impact-pop
+    box.scale = Vector2.all(0.82);
+    box.add(
+      ScaleEffect.to(
+        Vector2.all(1.0),
+        EffectController(duration: 0.085, curve: Curves.easeOutBack),
+      ),
     );
+
+    return filledLanes.length == lanes;
   }
 
   @override
   void update(double dt) {
     super.update(dt);
-    final double v = getSpeed(); // <- les **global** fart hver frame
-    y += v * dt;                 // nedover
-    bottomY = y;                 // hold kollisjons-hjelper i sync
+    final v = getSpeed();
+    y += v * dt;
+    bottomY = y;
   }
 }

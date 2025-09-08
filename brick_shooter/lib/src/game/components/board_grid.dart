@@ -1,8 +1,8 @@
+// lib/src/game/components/board_grid.dart
 import 'dart:ui' as ui;
 import 'package:flame/components.dart';
 
-/// Tegner vertikale linjer (kolonnedividere) over spillefeltet for tydelig 4-deling.
-class BoardGrid extends Component {
+class BoardGrid extends PositionComponent {
   final int lanes;
   final double laneWidth;
   final double top;
@@ -17,20 +17,23 @@ class BoardGrid extends Component {
     required this.bottom,
     required this.lineColor,
     required this.lineWidth,
-  });
+  }) {
+    position = Vector2(0, 0);
+    size = Vector2(laneWidth * lanes, bottom);
+    priority = -700;
+  }
 
   @override
-  Future<void> onLoad() async {
-    // Tegn lane-linjer 1..lanes-1
+  void render(ui.Canvas canvas) {
+    final p = ui.Paint()
+      ..color = lineColor
+      ..strokeWidth = lineWidth;
+
     for (int i = 1; i < lanes; i++) {
       final x = i * laneWidth;
-      add(
-        RectangleComponent(
-          position: Vector2(x - lineWidth / 2, top),
-          size: Vector2(lineWidth, bottom - top),
-          paint: ui.Paint()..color = lineColor,
-        ),
-      );
+      canvas.drawLine(ui.Offset(x, top), ui.Offset(x, bottom), p);
     }
+    canvas.drawLine(ui.Offset(0, top), ui.Offset(laneWidth * lanes, top), p);
+    canvas.drawLine(ui.Offset(0, bottom), ui.Offset(laneWidth * lanes, bottom), p);
   }
 }
