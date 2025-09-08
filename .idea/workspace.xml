@@ -9,23 +9,17 @@
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="39567608-3336-4341-9e0e-0ec762f727ee" name="Changes" comment="init">
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/libraries/Dart_Packages.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/libraries/Dart_SDK.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/brick_shooter/lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/brick_shooter/lib/main.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/brick_shooter/lib/src/game/background.dart" beforeDir="false" afterPath="$PROJECT_DIR$/brick_shooter/lib/src/game/background.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/brick_shooter/lib/src/game/components/board_grid.dart" beforeDir="false" afterPath="$PROJECT_DIR$/brick_shooter/lib/src/game/components/board_grid.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/brick_shooter/lib/src/game/components/brick_box.dart" beforeDir="false" afterPath="$PROJECT_DIR$/brick_shooter/lib/src/game/components/brick_box.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/brick_shooter/lib/src/game/components/bullet.dart" beforeDir="false" afterPath="$PROJECT_DIR$/brick_shooter/lib/src/game/components/bullet.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/brick_shooter/lib/src/game/components/row.dart" beforeDir="false" afterPath="$PROJECT_DIR$/brick_shooter/lib/src/game/components/row.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/brick_shooter/lib/src/game/components/shooter.dart" beforeDir="false" afterPath="$PROJECT_DIR$/brick_shooter/lib/src/game/components/shooter.dart" afterDir="false" />
+    <list default="true" id="39567608-3336-4341-9e0e-0ec762f727ee" name="Changes" comment="Office">
+      <change afterPath="$PROJECT_DIR$/brick_shooter/lib/src/game/config.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/brick_shooter/lib/src/game/state.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/brick_shooter/lib/src/game/systems/bullet_controller.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/brick_shooter/lib/src/game/systems/difficulty_controller.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/brick_shooter/lib/src/game/systems/row_controller.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/brick_shooter/lib/src/game/visuals/effects.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/brick_shooter/lib/src/game/components/bottom_row.dart" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/brick_shooter/lib/src/game/components/player.dart" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/brick_shooter/lib/src/game/my_game.dart" beforeDir="false" afterPath="$PROJECT_DIR$/brick_shooter/lib/src/game/my_game.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/brick_shooter/lib/src/ui/overlays.dart" beforeDir="false" afterPath="$PROJECT_DIR$/brick_shooter/lib/src/ui/overlays.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/brick_shooter/windows/runner/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/brick_shooter/windows/runner/main.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -67,26 +61,31 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Flutter.main.dart.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
-    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
-    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
-    &quot;com.google.services.firebase.aqiPopupShown&quot;: &quot;true&quot;,
-    &quot;dart.analysis.tool.window.visible&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;io.flutter.reload.alreadyRun&quot;: &quot;true&quot;,
-    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/krist/StudioProjects/Brick Shooter&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;org.jetbrains.plugins.github.ui.GithubSettingsConfigurable&quot;,
-    &quot;show.migrate.to.gradle.popup&quot;: &quot;false&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Flutter.main.dart.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "cf.first.check.clang-format": "false",
+    "cidr.known.project.marker": "true",
+    "com.google.services.firebase.aqiPopupShown": "true",
+    "git-widget-placeholder": "main",
+    "ignore.virus.scanning.warn.message": "true",
+    "io.flutter.reload.alreadyRun": "true",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "C:/Users/krist/StudioProjects/Brick Shooter",
+    "settings.editor.selected.configurable": "org.jetbrains.plugins.github.ui.GithubSettingsConfigurable",
+    "show.migrate.to.gradle.popup": "false"
   }
-}</component>
+}]]></component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\krist\StudioProjects\Brick Shooter\brick_shooter\lib\src\game" />
+      <recent name="C:\Users\krist\StudioProjects\Brick Shooter\brick_shooter\lib\src\game\visuals" />
+    </key>
+  </component>
   <component name="RunManager">
     <configuration name="main.dart" type="FlutterRunConfigurationType" factoryName="Flutter">
       <option name="filePath" value="$PROJECT_DIR$/brick_shooter/lib/main.dart" />
@@ -123,7 +122,21 @@
       <option name="presentableId" value="LOCAL−00003" />
       <updated>1756986487791</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL−00004" summary="Office">
+      <option name="closed" value="true" />
+      <created>1757315679796</created>
+      <option name="number" value="LOCAL−00004" />
+      <option name="presentableId" value="LOCAL−00004" />
+      <updated>1757315679796</updated>
+    </task>
+    <task id="LOCAL−00005" summary="Office">
+      <option name="closed" value="true" />
+      <created>1757315707993</created>
+      <option name="number" value="LOCAL−00005" />
+      <option name="presentableId" value="LOCAL−00005" />
+      <updated>1757315707993</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -139,6 +152,7 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="init" />
-    <option name="LAST_COMMIT_MESSAGE" value="init" />
+    <MESSAGE value="Office" />
+    <option name="LAST_COMMIT_MESSAGE" value="Office" />
   </component>
 </project>
