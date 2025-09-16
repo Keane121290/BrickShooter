@@ -1,26 +1,30 @@
-// lib/src/game/components/row.dart
 import 'dart:ui' as ui;
 import 'package:flame/components.dart';
-import 'package:flame/effects.dart';          // 👈 ScaleEffect, EffectController
-import 'package:flutter/animation.dart';      // 👈 Curves
+import 'package:flame/effects.dart';          // ScaleEffect, EffectController
+import 'package:flutter/animation.dart';      // Curves
 import 'brick_box.dart';
 
 class FallingRow extends PositionComponent {
   final int lanes;
   final double laneWidth;
   final double rowHeight;
-  final double pad;
+  final double pad;                 // margin rundt hver brikke
   final ui.Color color;
-  final double Function() getSpeed;
+  final double Function() getSpeed; // global px/s fra spillet
 
   double get brickHeight => rowHeight - 2 * pad;
-  double get brickWidth => laneWidth - 2 * pad;
+  double get brickWidth  => laneWidth  - 2 * pad;
 
+  /// y = bunn av brikkene (anchor=bottomLeft)
   double bottomY = 0;
 
+  /// Hvilke lanes som allerede er fylt (0..lanes-1)
   final Set<int> filledLanes;
+
+  /// Lanes som er reservert av kuler i lufta (hindrer “racing”)
   final Set<int> reservedLanes = {};
-  final Map<int, BrickBox> _ghosts = {};
+
+  /// Når raden blir full settes denne; ryddes KUN når raden er nederst
   bool pendingClear = false;
 
   FallingRow({
@@ -36,7 +40,7 @@ class FallingRow extends PositionComponent {
     anchor = Anchor.bottomLeft;
     position = Vector2(0, bottomY);
     size = Vector2(laneWidth * lanes, rowHeight);
-    priority = 20;
+    priority = 20; // rad-komponenten selv
   }
 
   @override
@@ -45,53 +49,41 @@ class FallingRow extends PositionComponent {
     final w = brickWidth;
     final top = -h;
 
+    // Legg inn ekte brikker for de fylte banene
     for (final lane in filledLanes) {
       final x = lane * laneWidth + pad;
-      add(BrickBox(color: color, radius: 18, borderWidth: 3)
-        ..position = Vector2(x, top)
-        ..size = Vector2(w, h),
+      add(
+        BrickBox(color: color, radius: 18, borderWidth: 3)
+          ..position = Vector2(x, top)
+          ..size = Vector2(w, h)
+          ..priority = 2,
       );
     }
   }
 
-  bool hasFreeLane(int lane) {
-    return !filledLanes.contains(lane) && !reservedLanes.contains(lane);
-  }
+  bool hasFreeLane(int lane) =>
+      !filledLanes.contains(lane) && !reservedLanes.contains(lane);
 
+  /// Reservér lane før skudd (ingen visuell ghost lenger)
   bool reserveLane(int lane, {ui.Color? ghostColor}) {
     if (!hasFreeLane(lane)) return false;
     reservedLanes.add(lane);
-
-    final h = brickHeight;
-    final w = brickWidth;
-    final top = -h;
-    final x = lane * laneWidth + pad;
-
-    final ghost = BrickBox(
-      color: (ghostColor ?? color).withOpacity(0.45),
-      radius: 18,
-      borderWidth: 2,
-    )
-      ..position = Vector2(x, top)
-      ..size = Vector2(w, h);
-
-    _ghosts[lane] = ghost;
-    add(ghost);
     return true;
   }
 
+  /// Av-reservér (f.eks. ved kansellert kule)
   void unreserveLane(int lane) {
     reservedLanes.remove(lane);
-    final g = _ghosts.remove(lane);
-    g?.removeFromParent();
   }
 
+  /// Fyll lane; fjerner reservasjon og legger inn ekte brikke med “pop”.
+  /// Returnerer `true` hvis raden ble full.
   bool fillLane(int lane) {
     reservedLanes.remove(lane);
-    final g = _ghosts.remove(lane);
-    g?.removeFromParent();
 
-    if (filledLanes.contains(lane)) return filledLanes.length == lanes;
+    if (filledLanes.contains(lane)) {
+      return filledLanes.length == lanes;
+    }
     filledLanes.add(lane);
 
     final h = brickHeight;
@@ -101,11 +93,12 @@ class FallingRow extends PositionComponent {
 
     final box = BrickBox(color: color, radius: 18, borderWidth: 3)
       ..position = Vector2(x, top)
-      ..size = Vector2(w, h);
+      ..size = Vector2(w, h)
+      ..priority = 2;
 
     add(box);
 
-    // 👇 Impact-pop
+    // Rask, liten “impact-pop”
     box.scale = Vector2.all(0.82);
     box.add(
       ScaleEffect.to(

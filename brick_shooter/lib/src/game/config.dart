@@ -7,9 +7,11 @@ class GameConfig {
   static const brickAspect = 2 / 3;
 
   static const rowSpeedStartRps = 1.2;
-  static const rowSpeedMaxRps = 2.6;
-  static const rowAccelRpsPerS = 0.06;
+  static const rowSpeedMaxRps = 3.5;
+  static const rowAccelRpsPerS = 0.02;
 
   static const bulletBaseRps = 50.0;
-  static const bulletFactor = 7.0;
+  static const bulletFactor = 3.5;
+
+
 }
