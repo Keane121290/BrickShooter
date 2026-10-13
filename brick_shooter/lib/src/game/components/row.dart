@@ -26,6 +26,10 @@ class FallingRow extends PositionComponent {
 
   /// Når raden blir full settes denne; ryddes KUN når raden er nederst
   bool pendingClear = false;
+  
+  /// Animasjon for når raden skal "droppe" nedover
+  bool _isDropping = false;
+  bool get isDropping => _isDropping;
 
   FallingRow({
     required this.lanes,
@@ -110,11 +114,47 @@ class FallingRow extends PositionComponent {
     return filledLanes.length == lanes;
   }
 
+  /// Start en "drop" animasjon nedover
+  void animateDrop(double targetY, {double duration = 0.2}) {
+    if (_isDropping) return; // Allerede animerer
+    
+    _isDropping = true;
+    final targetPosition = Vector2(position.x, targetY);
+    
+    add(
+      MoveEffect.to(
+        targetPosition,
+        EffectController(
+          duration: duration,
+          curve: Curves.easeOut,
+        ),
+        onComplete: () {
+          _isDropping = false;
+          bottomY = y; // Oppdater bottomY etter animasjonen
+        },
+      ),
+    );
+  }
+
   @override
   void update(double dt) {
     super.update(dt);
+    
+    // Beveg deg nedover basert på hastighet fra getSpeed()
+    // Dette fungerer både for normal bevegelse og drop-animasjon
+    // (drop-animasjonen setter hastighet via getEffectiveSpeed() i RowController)
     final v = getSpeed();
-    y += v * dt;
-    bottomY = y;
+    if (v > 0) {
+      y += v * dt;
+      bottomY = y;
+    } else {
+      // Oppdater bottomY hvis hastighet er 0
+      bottomY = y;
+    }
+    
+    // Hvis vi har en MoveEffect-animasjon (fra animateDrop), oppdater bottomY
+    if (_isDropping) {
+      bottomY = y;
+    }
   }
 }

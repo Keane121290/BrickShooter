@@ -29,9 +29,14 @@ class BoardGrid extends PositionComponent {
       ..color = lineColor
       ..strokeWidth = lineWidth;
 
+    // Vertical lines are transparent
+    final verticalPaint = ui.Paint()
+      ..color = const ui.Color(0x00000000) // Transparent
+      ..strokeWidth = lineWidth;
+
     for (int i = 1; i < lanes; i++) {
       final x = i * laneWidth;
-      canvas.drawLine(ui.Offset(x, top), ui.Offset(x, bottom), p);
+      canvas.drawLine(ui.Offset(x, top), ui.Offset(x, bottom), verticalPaint);
     }
     canvas.drawLine(ui.Offset(0, top), ui.Offset(laneWidth * lanes, top), p);
     canvas.drawLine(ui.Offset(0, bottom), ui.Offset(laneWidth * lanes, bottom), p);

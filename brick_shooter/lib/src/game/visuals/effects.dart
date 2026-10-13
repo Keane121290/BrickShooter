@@ -11,7 +11,7 @@ void emitSquareBurst(Component parent, Vector2 pos, ui.Color color) {
       priority: 60,
       particle: Particle.generate(
         count: 28,
-        lifespan: 0.45,
+        lifespan: 0.8, // Increased from 0.45 to make animation longer
         generator: (_) {
           final a = rnd.nextDouble() * 2 * pi;
           final r = 140 + rnd.nextDouble() * 120;
@@ -22,7 +22,7 @@ void emitSquareBurst(Component parent, Vector2 pos, ui.Color color) {
             speed: Vector2(vx, vy),
             child: CircleParticle(
               radius: 2.2,
-              paint: ui.Paint()..color = color.withOpacity(0.95),
+              paint: ui.Paint()..color = color.withValues(alpha: 0.95),
             ),
           );
         },

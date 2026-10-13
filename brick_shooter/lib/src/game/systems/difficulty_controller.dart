@@ -5,6 +5,7 @@ class DifficultyController extends Component {
   double rowPxPerSec = 0;
   double bulletPxPerSec = 0;
   final double rowHeight;
+  bool _paused = false;
 
   DifficultyController({required this.rowHeight});
 
@@ -12,6 +13,10 @@ class DifficultyController extends Component {
   Future<void> onLoad() async {
     rowPxPerSec = GameConfig.rowSpeedStartRps * rowHeight;
     _syncBullet();
+  }
+
+  void setPaused(bool paused) {
+    _paused = paused;
   }
 
   void _syncBullet() {
@@ -23,8 +28,16 @@ class DifficultyController extends Component {
     bulletPxPerSec = bulletRps * rowHeight;
   }
 
+  void resetToStartSpeed() {
+    rowPxPerSec = GameConfig.rowSpeedStartRps * rowHeight;
+    _syncBullet();
+  }
+
   @override
   void update(double dt) {
+    // Don't increase speed when paused
+    if (_paused) return;
+    
     final rps = (rowPxPerSec / rowHeight)
         .clamp(GameConfig.rowSpeedStartRps, GameConfig.rowSpeedMaxRps);
     final next = (rps + GameConfig.rowAccelRpsPerS * dt)

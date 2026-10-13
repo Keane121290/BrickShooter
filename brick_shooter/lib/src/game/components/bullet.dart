@@ -71,7 +71,7 @@ class BrickBullet extends PositionComponent {
               speed: Vector2((rnd.nextDouble() - 0.5) * 50, -20 - rnd.nextDouble() * 40),
               child: CircleParticle(
                 radius: 1.8,
-                paint: ui.Paint()..color = color.withOpacity(0.8),
+                paint: ui.Paint()..color = color.withValues(alpha: 0.8),
               ),
             ),
           ),

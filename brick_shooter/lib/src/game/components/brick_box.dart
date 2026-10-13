@@ -29,12 +29,12 @@ class BrickBox extends PositionComponent {
     canvas.drawRRect(rrect, shadowPaint);
     canvas.restore();
 
-    // Inner gradient (lys midt, mørkere kant)
+    // Inner gradient (mørkere, mindre hvit blending)
     final grad = ui.Gradient.linear(
       ui.Offset(rect.left, rect.top),
       ui.Offset(rect.left, rect.bottom),
       [
-        ui.Color.lerp(color, const ui.Color(0xFFFFFFFF), 0.45)!,
+        ui.Color.lerp(color, const ui.Color(0xFFFFFFFF), 0.2)!, // Redusert fra 0.45 til 0.2
         color,
         ui.Color.lerp(color, const ui.Color(0xFF00334D), 0.25)!,
       ],
@@ -50,14 +50,14 @@ class BrickBox extends PositionComponent {
       ..strokeWidth = borderWidth;
     canvas.drawRRect(rrect, border);
 
-    // Gloss highlight
+    // Gloss highlight (redusert for mindre hvit)
     final gloss = ui.Paint()
       ..shader = ui.Gradient.linear(
         ui.Offset(rect.left, rect.top),
-        ui.Offset(rect.left, rect.top + rect.height * .45),
+        ui.Offset(rect.left, rect.top + rect.height * .35), // Redusert område
         [
-          ui.Color.lerp(const ui.Color(0xFFFFFFFF), color, 0.4)!,
-          ui.Color.lerp(const ui.Color(0xFFFFFFFF), color, 0.8)!,
+          ui.Color.lerp(const ui.Color(0xFFFFFFFF), color, 0.6)!, // Mer farge, mindre hvit
+          ui.Color.lerp(const ui.Color(0xFFFFFFFF), color, 0.85)!,
           ui.Color.lerp(const ui.Color(0xFFFFFFFF), color, 1.0)!,
         ],
         const [0.0, 0.6, 1.0],
@@ -65,7 +65,7 @@ class BrickBox extends PositionComponent {
       ..blendMode = ui.BlendMode.plus
       ..style = ui.PaintingStyle.fill;
     final glossRect = ui.RRect.fromRectAndRadius(
-      ui.Rect.fromLTWH(rect.left + 2, rect.top + 2, rect.width - 4, rect.height * .42),
+      ui.Rect.fromLTWH(rect.left + 2, rect.top + 2, rect.width - 4, rect.height * .32), // Mindre område
       ui.Radius.circular(radius * .8),
     );
     canvas.drawRRect(glossRect, gloss);

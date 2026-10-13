@@ -28,9 +28,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # Prepare folders even if empty yet (create these in your project so future assets resolve cleanly)
-  assets:
-
   # Example for custom fonts later (leave commented until you add files)
   # fonts:
   #   - family: GameFont
