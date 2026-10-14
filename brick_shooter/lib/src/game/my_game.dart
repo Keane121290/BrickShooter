@@ -10,6 +10,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 // Game configuration and state
 import 'config.dart';
 import 'state.dart';
+import 'player_profile.dart';
+import '../ads/rewarded_ads.dart';
+import '../purchases/emerald_shop.dart';
+import 'components/power_orb.dart';
 
 // Visual effects
 import 'visuals/effects.dart';
@@ -37,6 +41,17 @@ import 'components/tutorial/dashed_line.dart';
 import 'components/tutorial/finger_hint.dart';
 
 class MyGame extends FlameGame with TapCallbacks {
+  MyGame({
+    PlayerProfile? profile,
+    RewardedPowerAds? rewardedAds,
+    this.shop,
+  }) : profile = profile ?? PlayerProfile(),
+       rewardedAds = rewardedAds ?? RewardedPowerAds();
+
+  final PlayerProfile profile;
+  final RewardedPowerAds rewardedAds;
+  final EmeraldShop? shop;
+
   // ========== Game State ==========
   GamePhase phase = GamePhase.menu;
   final score = ScoreState();
@@ -71,7 +86,8 @@ class MyGame extends FlameGame with TapCallbacks {
   );
 
   TimerDisplay? _timerDisplay;
-  double _timeRemaining = 90.0; // Start på 90 sekunder
+  double _timeRemaining = GameConfig.roundSeconds;
+  double _slowLeft = 0;
 
   GameButton? _pauseButton;
   GameButton? _restartButton;
@@ -126,7 +142,10 @@ class MyGame extends FlameGame with TapCallbacks {
     minimumBottomY = tutorialLineY + rowHeight * 0.8;
 
     // Systems
-    difficulty = DifficultyController(rowHeight: rowHeight);
+    difficulty = DifficultyController(
+      rowHeight: rowHeight,
+      getScore: () => score.score,
+    );
     add(difficulty);
 
     rowController = RowController(
@@ -158,7 +177,6 @@ class MyGame extends FlameGame with TapCallbacks {
 
     bulletController = BulletController(
       floorY: floorY,
-      laneWidth: laneWidth,
       bulletPxPerSec: () => difficulty.bulletPxPerSec,
     );
     add(bulletController);
@@ -205,13 +223,7 @@ class MyGame extends FlameGame with TapCallbacks {
     // Set score text position to center horizontally and size to match brick height
     _scoreText.position = Vector2(w / 2, 24);
     _scoreText.anchor = Anchor.topCenter;
-    _scoreText.textRenderer = TextPaint(
-      style: TextStyle(
-        fontSize: brickHeight,
-        fontWeight: FontWeight.bold,
-        color: ui.Color(0xFFFFFFFF),
-      ),
-    );
+    _applyScoreStyle();
     add(_scoreText);
 
     // Legg til tidteller til høyre for poengsummen
@@ -219,7 +231,7 @@ class MyGame extends FlameGame with TapCallbacks {
     _timerDisplay = TimerDisplay(
       timeRemaining: _timeRemaining,
       fontSize: brickHeight * 0.7, // Litt mindre enn poengsummen
-      textColor: const ui.Color(0xFFFFFFFF),
+      textColor: const ui.Color(0xFF8BE9FF),
       x: 0, // Vil bli overskrevet
       y: 24,
     );
@@ -273,6 +285,29 @@ class MyGame extends FlameGame with TapCallbacks {
       size: buttonSize,
     );
     add(_restartButton!);
+
+    final orbSize = buttonSize * 0.82;
+    var orbY = buttonY + buttonSize + 18 + orbSize / 2;
+    for (final kind in PowerUp.values) {
+      final tint = switch (kind) {
+        PowerUp.extraTime => const ui.Color(0xFF5FD0FF),
+        PowerUp.slowDown => const ui.Color(0xFFB388FF),
+        PowerUp.panic => const ui.Color(0xFFFF6EC7),
+      };
+      add(
+        PowerOrb(
+          kind: kind,
+          color: tint,
+          diameter: orbSize,
+          center: Vector2(buttonStartX + buttonSize / 2, orbY),
+          count: () => profile.countOf(kind),
+          shown: () => phase == GamePhase.playing || phase == GamePhase.paused,
+          urgency: () => _powerUrgency(kind),
+          onPressed: () => _usePower(kind),
+        ),
+      );
+      orbY += orbSize + 12;
+    }
 
     _laneLocked = List<bool>.filled(GameConfig.lanes, false);
     _laneQueue = List<int>.filled(GameConfig.lanes, 0);
@@ -341,9 +376,11 @@ class MyGame extends FlameGame with TapCallbacks {
 
     bulletController.shoot(
       lane: lane,
-      targetYResolver: () => target.bottomY,
-      brickSize: Vector2(brickWidth, brickHeight),
-      color: const ui.Color(0xFF53D769),
+      holeCenter: () => target.brickCenter(lane),
+      brickSize: Vector2(target.brickWidth, target.brickHeight),
+      color: rowController.cottonCandyActive
+          ? rowController.candyColorFor(lane)
+          : const ui.Color(0xFF53D769),
       onArrive: () {
         // If target row disappeared meanwhile (race), just unlock & drain
         if (!target.isMounted) {
@@ -357,10 +394,10 @@ class MyGame extends FlameGame with TapCallbacks {
           target.pendingClear = true;
           bulletController.cancelHigherInLane(lane, target.bottomY);
           
-          // For rapid shooting: immediately clear the row so next shot can target the next row
-          // This allows rapid consecutive shots to work correctly
+          // Bare den nederste fulle raden fjernes. Rader over blir liggende
+          // til de selv er nederst, og ryddes da i samme omgang.
           final currentMultiplier = multiplier.getCurrentMultiplier();
-          final clearedCount = rowController.clearBottomIfPending(onExplode: _explodeRow);
+          final clearedCount = rowController.clearBottomIfPending(onExplode: _onRowRemoved);
           if (clearedCount > 0) {
             _addScore(currentMultiplier * clearedCount);
           }
@@ -409,10 +446,13 @@ class MyGame extends FlameGame with TapCallbacks {
   void startGame() {
     // reset score + UI
     score.reset();
+    profile.beginRound();
     _scoreText.text = '0';
+    _applyScoreStyle();
 
-    // Reset timer til 90 sekunder
-    _timeRemaining = 90.0;
+    _timeRemaining = GameConfig.roundSeconds;
+    _slowLeft = 0;
+    rowController.speedScale = 1;
     if (_timerDisplay != null) {
       _timerDisplay!.timeRemaining = _timeRemaining;
     }
@@ -445,6 +485,11 @@ class MyGame extends FlameGame with TapCallbacks {
       prebuffer: GameConfig.prebufferRows,
       startAnimationTargetY: minimumBottomY,
       startAnimationDuration: 0.45, // 0.45 sekunder for animasjonen (dobbelt hastighet)
+    );
+    bulletController.syncCottonCandy(
+      active: false,
+      clock: 0,
+      colorForLane: rowController.candyColorFor,
     );
 
     // enter tutorialDrop phase
@@ -493,11 +538,17 @@ class MyGame extends FlameGame with TapCallbacks {
     background.setRunning(false);
     bulletController.setPaused(true);
     _clearTutorialUi();
+    profile.submitScore(score.score);
     _setPhase(GamePhase.gameOver);
   }
 
   @override
   void update(double dt) {
+    if (phase == GamePhase.playing && _slowLeft > 0) {
+      _slowLeft -= dt;
+      if (_slowLeft < 0) _slowLeft = 0;
+    }
+    rowController.speedScale = _slowLeft > 0 ? GameConfig.slowDownScale : 1;
     super.update(dt);
 
     // Oppdater start animation time kontinuerlig når vi er i tutorialDrop eller playing fase
@@ -577,22 +628,26 @@ class MyGame extends FlameGame with TapCallbacks {
       // 1) CLEAR bottom if pending (may chain)
       // Get multiplier before clearing (so all rows in batch use same multiplier)
       final currentMultiplier = multiplier.getCurrentMultiplier();
-      final clearedCount = rowController.clearBottomIfPending(onExplode: _explodeRow);
+      final clearedCount = rowController.clearBottomIfPending(onExplode: _onRowRemoved);
       
       // Add score for all cleared rows (multiplier × number of rows)
       if (clearedCount > 0) {
         _addScore(currentMultiplier * clearedCount);
       }
 
+      rowController.tickCottonCandy(dt);
+      bulletController.syncCottonCandy(
+        active: rowController.cottonCandyActive,
+        clock: rowController.candyClock,
+        colorForLane: rowController.candyColorFor,
+      );
+
       // 2) RECYCLE rader som går ut av skjermen (pre-genererte 500 rader)
       rowController.tickSpawn(dt);
       
       // 3) Sjekk kontinuerlig at den nederste raden respekterer minsteplassering
       // Dette må gjøres etter både fjerning og spawning
-      rowController.ensureMinimumPosition();
-      
-      // 4) Sjekk kontinuerlig at det er nok rader over toppen
-      rowController.ensureRowsAboveTop();
+      rowController.ensureMinimumPosition(dt);
 
       // 3) FLOOR check
       for (final r in List<FallingRow>.from(rowController.rows)) {
@@ -616,6 +671,78 @@ class MyGame extends FlameGame with TapCallbacks {
       _saveBest();
     }
     _scoreText.text = '${score.score}';
+    _applyScoreStyle();
+  }
+
+  void _applyScoreStyle() {
+    final compact = score.score > 999;
+    _scoreText.textRenderer = TextPaint(
+      style: TextStyle(
+        fontSize: compact ? brickHeight * 0.68 : brickHeight,
+        fontWeight: FontWeight.bold,
+        color: const ui.Color(0xFFFFD56A),
+      ),
+    );
+  }
+
+  void _usePower(PowerUp kind) {
+    switch (kind) {
+      case PowerUp.extraTime:
+        useExtraTime();
+      case PowerUp.slowDown:
+        useSlowDown();
+      case PowerUp.panic:
+        usePanic();
+    }
+  }
+
+  double _powerUrgency(PowerUp kind) {
+    switch (kind) {
+      case PowerUp.extraTime:
+        return _timeRemaining < 10 ? 1 : 0;
+      case PowerUp.slowDown:
+        final rps = rowHeight <= 0 ? 0.0 : difficulty.rowPxPerSec / rowHeight;
+        if (rps < 2.5) return 0;
+        final steps = ((rps - 2.5) / 0.5).floor() + 1;
+        return (0.55 + steps * 0.2).clamp(0.55, 1.35);
+      case PowerUp.panic:
+        final bottom = rowController.getBottomRow();
+        if (bottom == null) return 0;
+        return bottom.bottomY > size.y * 0.75 ? 1 : 0;
+    }
+  }
+
+  void useExtraTime() {
+    if (phase != GamePhase.playing) return;
+    if (!profile.tryUse(PowerUp.extraTime)) return;
+    _timeRemaining += GameConfig.extraTimeSeconds;
+    if (_timerDisplay != null) {
+      _timerDisplay!.timeRemaining = _timeRemaining;
+    }
+  }
+
+  void useSlowDown() {
+    if (phase != GamePhase.playing) return;
+    if (!profile.tryUse(PowerUp.slowDown)) return;
+    _slowLeft = GameConfig.slowDownSeconds;
+    rowController.speedScale = GameConfig.slowDownScale;
+  }
+
+  void usePanic() {
+    if (phase != GamePhase.playing) return;
+    if (!profile.tryUse(PowerUp.panic)) return;
+    final currentMultiplier = multiplier.getCurrentMultiplier();
+    final cleared = rowController.clearVisibleRows(onExplode: _onRowRemoved);
+    if (cleared > 0) {
+      _addScore(currentMultiplier * cleared);
+    }
+  }
+
+  void _onRowRemoved(FallingRow row) {
+    _explodeRow(row);
+    if (row.isSpecial) {
+      profile.addEmerald();
+    }
   }
 
   Future<void> _loadBest() async {

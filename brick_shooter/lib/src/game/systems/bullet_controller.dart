@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
@@ -5,14 +6,17 @@ import '../components/brick_box.dart';
 
 class BulletController extends Component with HasGameReference<FlameGame> {
   final double floorY;
-  final double laneWidth;
   final double Function() bulletPxPerSec;
 
   bool _paused = false;
+  bool _candyActive = false;
+  double _candyClock = 0;
+  ui.Color Function(int lane) _candyColor = _defaultCandy;
+
+  static ui.Color _defaultCandy(int lane) => const ui.Color(0xFFFF6EC7);
 
   BulletController({
     required this.floorY,
-    required this.laneWidth,
     required this.bulletPxPerSec,
   });
 
@@ -20,20 +24,20 @@ class BulletController extends Component with HasGameReference<FlameGame> {
 
   void shoot({
     required int lane,
-    required double Function() targetYResolver,
+    required Vector2 Function() holeCenter,
     required Vector2 brickSize,
     required ui.Color color,
     required void Function() onArrive,
     required void Function() onCancel,
   }) {
-    final xCenter = lane * laneWidth + laneWidth / 2;
     final bullet = _Bullet(
-      x: xCenter,
+      lane: lane,
+      x: holeCenter().x,
       y: floorY,
       w: brickSize.x,
       h: brickSize.y,
       color: color,
-      targetYResolver: targetYResolver,
+      holeCenter: holeCenter,
       onArrive: onArrive,
       onCancel: onCancel,
     );
@@ -43,10 +47,22 @@ class BulletController extends Component with HasGameReference<FlameGame> {
 
   void cancelHigherInLane(int lane, double bottomY) {
     for (final b in List<_Bullet>.from(_bullets)) {
-      if ((b.x - (lane * laneWidth + laneWidth / 2)).abs() < 1 &&
-          b.y < bottomY) {
+      if (b.lane == lane && b.y < bottomY) {
         b.cancel();
       }
+    }
+  }
+
+  void syncCottonCandy({
+    required bool active,
+    required double clock,
+    required ui.Color Function(int lane) colorForLane,
+  }) {
+    _candyActive = active;
+    _candyClock = clock;
+    _candyColor = colorForLane;
+    for (final b in _bullets) {
+      b.paint(active ? colorForLane(b.lane) : b.color);
     }
   }
 
@@ -59,37 +75,37 @@ class BulletController extends Component with HasGameReference<FlameGame> {
     if (_paused) return;
     final speed = bulletPxPerSec(); // kontrolleres av DifficultyController
     for (final b in List<_Bullet>.from(_bullets)) {
-      b.y -= speed * dt;
-      b.position = Vector2(b.x, b.y);
-      
-      // Stop when bullet center reaches or passes target bottomY
-      // Since bullet moves upward (y decreases), we check when y <= targetY
-      if (b.y <= b.targetYResolver()) {
+      final nextY = b.y - speed * dt;
+      final hole = b.holeCenter();
+      final sway = _candyActive ? sin(_candyClock * 2 * pi * 1.7 + b.lane) * 8.0 : 0.0;
+      if (nextY <= hole.y) {
+        b.position = hole;
         b.arrive();
+      } else {
+        b.position = Vector2(hole.x + sway, nextY);
+        b.paint(_candyActive ? _candyColor(b.lane) : b.color);
       }
     }
   }
 }
 
 class _Bullet extends PositionComponent {
-  @override
-  final double x;
-  @override
-  double y;
+  final int lane;
   final double w, h;
   final ui.Color color;
-  final double Function() targetYResolver;
+  final Vector2 Function() holeCenter;
   final void Function() onArrive;
   final void Function() onCancel;
   bool _done = false;
 
   _Bullet({
-    required this.x,
-    required this.y,
+    required this.lane,
+    required double x,
+    required double y,
     required this.w,
     required this.h,
     required this.color,
-    required this.targetYResolver,
+    required this.holeCenter,
     required this.onArrive,
     required this.onCancel,
   }) {
@@ -113,17 +129,21 @@ class _Bullet extends PositionComponent {
     onCancel();
   }
 
+  void paint(ui.Color next) {
+    for (final box in children.whereType<BrickBox>()) {
+      box.color = next;
+    }
+  }
+
   @override
   Future<void> onLoad() async {
-    // Bruk samme BrickBox som de blå blokkene for identisk størrelse og rendering
-    // _Bullet bruker anchor = Anchor.center, så BrickBox må posisjoneres relativt til sentrum
-    // w er brickWidth (bredde), h er brickHeight (høyde) - samme som blokkene i radene
-    // BrickBox bruker anchor = Anchor.topLeft, så vi må posisjonere den slik at den er sentrert
-    // For å sentrere: offset by half width to the left and half height up from center
+    // Samme BrickBox og samme mål som klossene i radene.
+    // Forelderen har anker i sentrum, og lokal (0, 0) er øverst til venstre,
+    // så klossen fyller skuddet og senteret treffer midt i hullet.
     add(BrickBox(color: color, radius: 18, borderWidth: 3)
       ..anchor = Anchor.topLeft
-      ..position = Vector2(-w / 2, -h / 2)
-      ..size = Vector2(w, h) // w = brickWidth, h = brickHeight (samme som blokkene)
+      ..position = Vector2.zero()
+      ..size = Vector2(w, h)
       ..priority = 2,
     );
   }

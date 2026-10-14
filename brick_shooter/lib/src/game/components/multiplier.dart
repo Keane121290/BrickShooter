@@ -7,9 +7,9 @@ class Multiplier extends Component {
   final double floorY;
   final int Function() getScore;
 
-  // Multiplier thresholds: [75, 210, ...]
-  // Each threshold represents the score needed to reach the next multiplier level
-  static const List<int> _thresholds = [75, 210, 420, 720, 1125, 1650, 2310, 3120, 4095];
+  // Poeng som kreves for å nå neste multiplikator (2x, 3x, ...).
+  // 2x kommer tidlig. Deretter tettere steg, så en god runde kan klatre videre.
+  static const List<int> _thresholds = [35, 80, 140, 220, 320, 450, 620, 830, 1100, 1450];
   
   // Colors for each multiplier level (cycling through)
   static const List<ui.Color> _multiplierColors = [
@@ -45,7 +45,7 @@ class Multiplier extends Component {
     final multiplier = getCurrentMultiplier();
     
     if (multiplier == 1) {
-      // First bar: 0 to 10
+      // Første steg: 0 til første terskel (2x).
       return (score / _thresholds[0]).clamp(0.0, 1.0);
     } else if (multiplier <= _thresholds.length) {
       // Subsequent bars: progress from previous threshold to current threshold

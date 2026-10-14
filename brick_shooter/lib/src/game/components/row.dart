@@ -1,7 +1,9 @@
+import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flame/components.dart';
 import 'package:flame/effects.dart';          // ScaleEffect, EffectController
 import 'package:flutter/animation.dart';      // Curves
+import '../config.dart';
 import 'brick_box.dart';
 
 class FallingRow extends PositionComponent {
@@ -9,8 +11,15 @@ class FallingRow extends PositionComponent {
   final double laneWidth;
   final double rowHeight;
   final double pad;                 // margin rundt hver brikke
-  final ui.Color color;
+  ui.Color color;
+  ui.Color restingColor;
   final double Function() getSpeed; // global px/s fra spillet
+
+  /// 1 er den nederste raden ved start. 0 betyr en rad som spilleren har bygget.
+  int rowNumber = 0;
+
+  bool get isSpecial =>
+      rowNumber > 0 && rowNumber % GameConfig.specialRowEvery == 0;
 
   double get brickHeight => rowHeight - 2 * pad;
   double get brickWidth  => laneWidth  - 2 * pad;
@@ -40,7 +49,8 @@ class FallingRow extends PositionComponent {
     required this.getSpeed,
     required this.bottomY,
     required Set<int> filledLanes,
-  }) : filledLanes = Set<int>.from(filledLanes) {
+  }) : filledLanes = Set<int>.from(filledLanes),
+       restingColor = color {
     anchor = Anchor.bottomLeft;
     position = Vector2(0, bottomY);
     size = Vector2(laneWidth * lanes, rowHeight);
@@ -49,20 +59,76 @@ class FallingRow extends PositionComponent {
 
   @override
   Future<void> onLoad() async {
-    final h = brickHeight;
-    final w = brickWidth;
-    final top = -h;
-
-    // Legg inn ekte brikker for de fylte banene
     for (final lane in filledLanes) {
-      final x = lane * laneWidth + pad;
-      add(
-        BrickBox(color: color, radius: 18, borderWidth: 3)
-          ..position = Vector2(x, top)
-          ..size = Vector2(w, h)
-          ..priority = 2,
+      _addBrick(lane, pop: false);
+    }
+  }
+
+  final Map<BrickBox, double> _restX = {};
+
+  void recolor(ui.Color next) {
+    color = next;
+    for (final box in children.whereType<BrickBox>()) {
+      box.color = next;
+    }
+  }
+
+  /// Liten sideveis sjangling. Hver kloss husker sitt opprinnelige x.
+  void applySway(double clock) {
+    var i = 0;
+    for (final box in children.whereType<BrickBox>()) {
+      final rest = _restX.putIfAbsent(box, () => box.position.x);
+      final phase = i * 1.15 + rowNumber * 0.45;
+      box.position.x = rest + sin(clock * 2 * pi * 1.7 + phase) * 8.0;
+      i++;
+    }
+  }
+
+  void clearSway() {
+    for (final entry in _restX.entries) {
+      if (entry.key.isMounted) {
+        entry.key.position.x = entry.value;
+      }
+    }
+    _restX.clear();
+  }
+
+  void rebuildBricks() {
+    clearSway();
+    for (final child in children.whereType<BrickBox>().toList()) {
+      child.removeFromParent();
+    }
+    for (final lane in filledLanes) {
+      _addBrick(lane, pop: false);
+    }
+  }
+
+  BrickBox _addBrick(int lane, {required bool pop}) {
+    final box = BrickBox(color: color, radius: 18, borderWidth: 3)
+      ..position = Vector2(lane * laneWidth + pad, -brickHeight)
+      ..size = Vector2(brickWidth, brickHeight)
+      ..priority = 2;
+    add(box);
+    if (pop) {
+      box.scale = Vector2.all(0.82);
+      box.add(
+        ScaleEffect.to(
+          Vector2.all(1.0),
+          EffectController(duration: 0.085, curve: Curves.easeOutBack),
+        ),
       );
     }
+    return box;
+  }
+
+  /// Midten av klossen (eller hullet) i [lane], i verdenskoordinater.
+  Vector2 brickCenter(int lane) {
+    return absolutePositionOf(
+      Vector2(
+        lane * laneWidth + pad + brickWidth / 2,
+        -brickHeight / 2,
+      ),
+    );
   }
 
   bool hasFreeLane(int lane) =>
@@ -89,28 +155,7 @@ class FallingRow extends PositionComponent {
       return filledLanes.length == lanes;
     }
     filledLanes.add(lane);
-
-    final h = brickHeight;
-    final w = brickWidth;
-    final top = -h;
-    final x = lane * laneWidth + pad;
-
-    final box = BrickBox(color: color, radius: 18, borderWidth: 3)
-      ..position = Vector2(x, top)
-      ..size = Vector2(w, h)
-      ..priority = 2;
-
-    add(box);
-
-    // Rask, liten “impact-pop”
-    box.scale = Vector2.all(0.82);
-    box.add(
-      ScaleEffect.to(
-        Vector2.all(1.0),
-        EffectController(duration: 0.085, curve: Curves.easeOutBack),
-      ),
-    );
-
+    _addBrick(lane, pop: true);
     return filledLanes.length == lanes;
   }
 

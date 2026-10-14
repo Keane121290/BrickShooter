@@ -3,7 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import '../components/row.dart';
-import '../components/brick_box.dart';
+import '../config.dart';
 
 /// Kontrollerer rader:
 /// - Spawner alltid 3 brikker + 1 hull (deterministisk)
@@ -19,14 +19,14 @@ class RowController extends Component with HasGameReference<FlameGame> {
   final double Function() rowSpeedPx; // brukes av FallingRow via getSpeed
   
   double getEffectiveSpeed() {
-    if (_isStartAnimation) {
-      return _startAnimationSpeed;
-    }
-    if (_isDropping) {
-      return _dropAnimationSpeed;
-    }
-    return rowSpeedPx();
+    final base = _isStartAnimation
+        ? _startAnimationSpeed
+        : rowSpeedPx() + _catchUpSpeed;
+    return base * speedScale;
   }
+
+  /// 1 er normal fart. Slow-down setter denne lavere i noen sekunder.
+  double speedScale = 1;
   
   bool get isStartAnimation => _isStartAnimation;
   
@@ -36,6 +36,22 @@ class RowController extends Component with HasGameReference<FlameGame> {
     _isStartAnimation = false;
   }
   final ui.Color rowColor;
+
+  static const _specialColor = ui.Color(0xFFFF2D3A);
+  static const _candyColors = <ui.Color>[
+    ui.Color(0xFFFF6EC7),
+    ui.Color(0xFF5FD0FF),
+    ui.Color(0xFFB388FF),
+    ui.Color(0xFF6DFFB0),
+    ui.Color(0xFFFFC45A),
+    ui.Color(0xFFFFF06A),
+  ];
+
+  int _nextRowNumber = 1;
+  double cottonCandyLeft = 0;
+  double candyClock = 0;
+
+  bool get cottonCandyActive => cottonCandyLeft > 0;
 
   /// Minsteplassering for den nederste raden (stopY fra rød linje)
   double? minimumBottomY;
@@ -54,9 +70,11 @@ class RowController extends Component with HasGameReference<FlameGame> {
   final _rng = Random();
   bool _isStartAnimation = false;
   double _startAnimationSpeed = 0.0;
-  bool _isDropping = false;
-  double _dropAnimationSpeed = 0.0;
-  double _dropTargetBottomY = 0.0;
+
+  /// Ekstra fart som henter stabelen ned når spilleren rydder raskere enn den faller.
+  double _catchUpSpeed = 0.0;
+
+  static const int minVisibleRows = 4;
 
   int? _nextForcedGap; // debug-hook
   
@@ -129,6 +147,8 @@ class RowController extends Component with HasGameReference<FlameGame> {
     }
     rows.clear();
     _recentGapLanes.clear();
+    _resetSpecials();
+    _catchUpSpeed = 0;
 
     // Spawn rader over toppen med riktig spacing
     final startOffset = rowHeight * (visible + 2); // Start godt over toppen
@@ -158,6 +178,8 @@ class RowController extends Component with HasGameReference<FlameGame> {
     }
     rows.clear();
     _recentGapLanes.clear();
+    _resetSpecials();
+    _catchUpSpeed = 0;
 
     // Pre-generer 500 rader i en lang rekke over toppen
     const totalRows = 500;
@@ -223,6 +245,7 @@ class RowController extends Component with HasGameReference<FlameGame> {
       filledLanes: filled,
     )..priority = 50;
 
+    _stamp(r, counted: true);
     rows.add(r);
     game.add(r);
   }
@@ -247,64 +270,17 @@ class RowController extends Component with HasGameReference<FlameGame> {
         bottom.bottomY = newBottomY;
         
         // Reset radens tilstand (fjern alle brikker og reservasjoner)
+        bottom.clearSway();
         bottom.filledLanes.clear();
         bottom.reservedLanes.clear();
         bottom.pendingClear = false;
-        
-        // Generer ny gap-lane for denne raden
+
         final gapLane = _selectGapLane();
         final filled = <int>{for (int i = 0; i < lanes; i++) if (i != gapLane) i};
         bottom.filledLanes.addAll(filled);
-        
-        // Fjern alle eksisterende brikker ved å fjerne alle children som er BrickBox
-        final childrenToRemove = bottom.children.whereType<BrickBox>().toList();
-        for (final child in childrenToRemove) {
-          child.removeFromParent();
-        }
-        
-        // Legg til nye brikker for de fylte lanes
-        final h = bottom.brickHeight;
-        final w = bottom.brickWidth;
-        final topY = -h;
-        for (final lane in filled) {
-          final x = lane * bottom.laneWidth + bottom.pad;
-          bottom.add(
-            BrickBox(color: rowColor, radius: 18, borderWidth: 3)
-              ..position = Vector2(x, topY)
-              ..size = Vector2(w, h)
-              ..priority = 2,
-          );
-        }
+        _stamp(bottom, counted: true);
+        bottom.rebuildBricks();
       }
-    }
-  }
-
-  @override
-  void update(double dt) {
-    super.update(dt);
-    
-    // Oppdater drop-animasjon (scrollende effekt som startanimasjonen)
-    if (_isDropping) {
-      // Sjekk om den nederste raden har nådd målet
-      final bottom = getBottomRow();
-      if (bottom != null && bottom.bottomY >= _dropTargetBottomY) {
-        // Animasjonen er ferdig
-        _isDropping = false;
-        _dropAnimationSpeed = 0.0;
-        // Snapp alle radene til eksakt posisjon
-        final offset = _dropTargetBottomY - bottom.bottomY;
-        for (final row in rows) {
-          if (row.isMounted) {
-            row.y += offset;
-            row.bottomY = row.y;
-          }
-        }
-        ensureRowsAboveTop();
-      }
-      
-      // Under animasjonen, sjekk kontinuerlig for overlapp og fiks dem
-      // Dette forhindrer at radene overlapper mens de animerer
-      _fixOverlappingRows();
     }
   }
 
@@ -321,7 +297,7 @@ class RowController extends Component with HasGameReference<FlameGame> {
     // I tutorialDrop fase (etter start-animasjonen), la radene også bevege seg fritt
     // Snapp kun til grid når radene skal stoppe (tutorialHold) eller når de overlapper
     // Ikke snapp hvis drop-animasjonen pågår
-    if (!_isStartAnimation && allowSnap && !_isDropping) {
+    if (!_isStartAnimation && allowSnap) {
       // Kun snapp hvis radene faktisk overlapper eller er for langt unna grid
       _snapRowsToGrid();
     }
@@ -368,7 +344,7 @@ class RowController extends Component with HasGameReference<FlameGame> {
       // Sjekk om radene overlapper (mindre enn rowHeight mellom dem)
       // Under drop-animasjonen, bruk mindre toleranse for å fikse overlapp raskere
       final distance = nextRow.bottomY - currentRow.bottomY;
-      final tolerance = _isDropping ? rowHeight * 0.1 : rowHeight * 0.5;
+      final tolerance = rowHeight * 0.5;
       
       if (distance < rowHeight - tolerance) {
         // Flytt neste rad til korrekt posisjon (en rowHeight over nåværende)
@@ -428,20 +404,14 @@ class RowController extends Component with HasGameReference<FlameGame> {
     return findRowNearBottom(targetBottomY, eps: rowHeight * 0.5);
   }
 
-  /// Velg **øverste hullet i første sammenhengende “fri-run” fra bunn**.
-  /// Hvis nederste er blokkert i lane → bygg-under KUN hvis det er plass over gulvet.
+  /// Land i det øverste hullet i sammenhengende åpne rader, telt fra bunnen.
+  /// En fylt eller reservert kolonne stopper løpet. Er bunnen fylt, legg en ny rad rett under.
   FallingRow landingTargetHighestInRun(int lane) {
-    final col = rows.where((r) {
-      if (!r.isMounted) return false;
-      if (r.pendingClear) return false; // Ignore rows that are pending clear
-      final brickH = r.brickHeight;
-      final top = r.bottomY - brickH;
-      return r.bottomY >= (boardTop - rowHeight) && top <= floorY;
-    }).toList()
+    final col = rows.where((r) => r.isMounted).toList()
       ..sort((a, b) => b.bottomY.compareTo(a.bottomY)); // nederst → øverst
 
     if (col.isEmpty) {
-      return _ensureRowAtBottomY(spawnBottomY);
+      return _ensureRowAtBottomY(restingBottomY);
     }
 
     final bottom = col.first;
@@ -461,10 +431,13 @@ class RowController extends Component with HasGameReference<FlameGame> {
       }
     }
 
-    // bunn er fri → gå oppover mens lane er fri; velg høyeste i “run”
+    // Åpne hull rett over hverandre: legg skuddet i det øverste.
+    // En full rad blir stående til raden under også er full.
     FallingRow lastFree = bottom;
     for (int i = 1; i < col.length; i++) {
       final r = col[i];
+      final separated = (lastFree.bottomY - r.bottomY - rowHeight).abs();
+      if (separated > rowHeight * 0.45) break;
       final blocked =
           r.filledLanes.contains(lane) || r.reservedLanes.contains(lane);
       if (blocked) break;
@@ -474,9 +447,9 @@ class RowController extends Component with HasGameReference<FlameGame> {
   }
 
   FallingRow _ensureRowAtBottomY(double bottomY) {
-    // clamp for sikkerhets skyld – aldri over gulvet, og respekter minsteplassering
-    var clampedBottom = bottomY.clamp(double.negativeInfinity, floorY - 1.0);
-    clampedBottom = _clampToMinimumBottomY(clampedBottom);
+    // Rett under stabelen. Ikke dra raden ned til minimumslinjen, det lager et hull.
+    final safeBottomMax = floorY - rowHeight * 0.25;
+    final clampedBottom = bottomY > safeBottomMax ? safeBottomMax : bottomY;
     final existing = findRowNearBottom(clampedBottom, eps: rowHeight * 0.45);
     if (existing != null) return existing;
 
@@ -491,9 +464,57 @@ class RowController extends Component with HasGameReference<FlameGame> {
       filledLanes: {},
     )..priority = 50;
 
+    _stamp(r, counted: false);
     rows.add(r);
     game.add(r);
     return r;
+  }
+
+  void _resetSpecials() {
+    _nextRowNumber = 1;
+    cottonCandyLeft = 0;
+    candyClock = 0;
+  }
+
+  ui.Color restingColorFor(int rowNumber) {
+    if (rowNumber > 0 && rowNumber % GameConfig.specialRowEvery == 0) {
+      return _specialColor;
+    }
+    return rowColor;
+  }
+
+  ui.Color candyColorFor(int key) {
+    final index = key.abs() % _candyColors.length;
+    return _candyColors[index];
+  }
+
+  void _stamp(FallingRow row, {required bool counted}) {
+    if (counted) {
+      row.rowNumber = _nextRowNumber++;
+    }
+    row.restingColor = restingColorFor(row.rowNumber);
+    row.color = cottonCandyActive ? candyColorFor(row.rowNumber) : row.restingColor;
+  }
+
+  /// Fargelegg alle rader og la klossene sjangre sidelengs mens effekten varer.
+  void tickCottonCandy(double dt) {
+    if (cottonCandyLeft <= 0) return;
+    cottonCandyLeft -= dt;
+    candyClock += dt;
+    if (cottonCandyLeft <= 0) {
+      cottonCandyLeft = 0;
+      for (final row in rows) {
+        row.clearSway();
+        row.recolor(row.restingColor);
+      }
+      return;
+    }
+    for (var i = 0; i < rows.length; i++) {
+      final row = rows[i];
+      final key = row.rowNumber > 0 ? row.rowNumber : i + 1;
+      row.recolor(candyColorFor(key));
+      row.applySway(candyClock);
+    }
   }
 
   bool reserve(FallingRow row, int lane, {ui.Color? ghostColor}) {
@@ -515,6 +536,9 @@ class RowController extends Component with HasGameReference<FlameGame> {
       if (bottom == null) break;
       if (!bottom.pendingClear) break;
       onExplode(bottom);
+      if (bottom.isSpecial) {
+        cottonCandyLeft = GameConfig.cottonCandySeconds;
+      }
       _removeRow(bottom);
       cleared++;
     }
@@ -526,48 +550,59 @@ class RowController extends Component with HasGameReference<FlameGame> {
     rows.remove(r);
   }
 
-  /// Sjekk om den nederste raden er over minsteplassering, og animer alle radene nedover hvis nødvendig.
-  /// Dette skal kalles kontinuerlig for å sikre at den nederste raden alltid er under minsteplassering.
-  /// Etter animasjon, sjekk at det er minst 6 rader over toppen og spawn nye hvis nødvendig.
-  void ensureMinimumPosition() {
-    if (minimumBottomY == null) return;
-    
-    final bottom = getBottomRow();
-    if (bottom == null) return;
-    
-    // Hvis den nederste raden er over minsteplassering, animer alle radene nedover
-    // Bruk samme scrollende effekt som startanimasjonen
-    if (bottom.bottomY < minimumBottomY!) {
-      if (!_isDropping) {
-        _isDropping = true;
-
-        // Beregn målposisjon og avstand
-        final targetBottomY = minimumBottomY!;
-        final currentBottomY = bottom.bottomY;
-        final distance = targetBottomY - currentBottomY;
-        
-        // Bruk samme varighet som startanimasjonen (0.45 sekunder), men tredoble hastigheten
-        const dropDuration = 0.45;
-        _dropAnimationSpeed = (distance / dropDuration) * 3.0; // Tredoblet hastighet
-        _dropTargetBottomY = targetBottomY;
-        
-        // Ikke bruk animateDrop() - la FallingRow.update() håndtere bevegelsen
-        // ved å bruke getEffectiveSpeed() som returnerer _dropAnimationSpeed
-      }
+  /// Fjerner radene som vises på brettet. Brukes av panic.
+  int clearVisibleRows({required void Function(FallingRow row) onExplode}) {
+    final visible = rows.where((r) {
+      if (!r.isMounted) return false;
+      final top = r.bottomY - r.brickHeight;
+      return r.bottomY > boardTop && top < floorY;
+    }).toList();
+    var special = false;
+    for (final row in visible) {
+      onExplode(row);
+      if (row.isSpecial) special = true;
+      _removeRow(row);
     }
+    if (special) {
+      cottonCandyLeft = GameConfig.cottonCandySeconds;
+    }
+    return visible.length;
   }
-  
-  /// Sikre at det alltid er minst 6 rader over toppen av skjermen (boardTop)
-  /// Med pre-genererte 500 rader, skal dette alltid være tilfelle, men vi sjekker likevel
-  void ensureRowsAboveTop() {
-    // Med 500 pre-genererte rader, skal vi alltid ha nok rader over toppen
-    // Denne metoden er nå primært for sikkerhetsskyld
-    // Vi trenger ikke å spawn nye rader siden vi allerede har 500 pre-genererte
+
+  /// Der den nederste raden skal ligge for at fire hele rader er på skjermen.
+  double get restingBottomY {
+    final brickH = rowHeight - 2 * padPx;
+    final fourRows = boardTop + (minVisibleRows - 1) * rowHeight + brickH;
+    final minLine = minimumBottomY ?? fourRows;
+    final cap = floorY - rowHeight;
+    return min(max(minLine, fourRows), cap);
   }
-  
-  /// Hjelpemetode for å sikre at en targetBottomY respekterer minsteplassering
-  double _clampToMinimumBottomY(double targetBottomY) {
-    if (minimumBottomY == null) return targetBottomY;
-    return targetBottomY.clamp(minimumBottomY!, double.infinity);
+
+  /// Hent stabelen ned mot [restingBottomY]. Farten regnes på nytt hver frame
+  /// ut fra hvor stort hullet er, så rask rydning gir raskere innhenting.
+  void ensureMinimumPosition(double dt) {
+    final bottom = getBottomRow();
+    if (bottom == null) {
+      _catchUpSpeed = 0;
+      return;
+    }
+
+    final gap = restingBottomY - bottom.bottomY;
+    if (gap <= 0.5) {
+      _catchUpSpeed = 0;
+      return;
+    }
+
+    final gapRows = gap / rowHeight;
+    final duration = (0.16 + gapRows * 0.05).clamp(0.16, 0.55);
+    final normal = max(0.0, rowSpeedPx());
+    final desiredExtra = max(0.0, gap / duration - normal);
+    final blend = dt <= 0 ? 1.0 : (1 - exp(-dt * 12)).clamp(0.0, 1.0);
+    _catchUpSpeed += (desiredExtra - _catchUpSpeed) * blend;
+
+    final maxTotal = gap / max(dt, 0.001);
+    if (normal + _catchUpSpeed > maxTotal) {
+      _catchUpSpeed = max(0.0, maxTotal - normal);
+    }
   }
 }

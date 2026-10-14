@@ -5,9 +5,13 @@ class DifficultyController extends Component {
   double rowPxPerSec = 0;
   double bulletPxPerSec = 0;
   final double rowHeight;
+  final int Function() getScore;
   bool _paused = false;
 
-  DifficultyController({required this.rowHeight});
+  DifficultyController({
+    required this.rowHeight,
+    required this.getScore,
+  });
 
   @override
   Future<void> onLoad() async {
@@ -40,7 +44,8 @@ class DifficultyController extends Component {
     
     final rps = (rowPxPerSec / rowHeight)
         .clamp(GameConfig.rowSpeedStartRps, GameConfig.rowSpeedMaxRps);
-    final next = (rps + GameConfig.rowAccelRpsPerS * dt)
+    final accel = GameConfig.rowAccelForScore(getScore());
+    final next = (rps + accel * dt)
         .clamp(GameConfig.rowSpeedStartRps, GameConfig.rowSpeedMaxRps);
     rowPxPerSec = next * rowHeight;
     _syncBullet();

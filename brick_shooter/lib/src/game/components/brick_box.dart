@@ -3,7 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flame/components.dart';
 
 class BrickBox extends PositionComponent {
-  final ui.Color color;
+  ui.Color color;
   final double radius;
   final double borderWidth;
 

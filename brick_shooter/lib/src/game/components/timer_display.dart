@@ -1,10 +1,10 @@
-// lib/src/game/components/timer_display.dart
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flame/components.dart';
 import 'package:flutter/painting.dart';
 
 class TimerDisplay extends PositionComponent {
-  double timeRemaining; // Sekunder
+  double timeRemaining;
   final double fontSize;
   final ui.Color textColor;
 
@@ -22,23 +22,16 @@ class TimerDisplay extends PositionComponent {
   }
 
   void _updateSize() {
-    final timeText = _formatTime(timeRemaining);
-    final clockSize = fontSize * 0.6;
-    final spacing = 8.0;
-    
-    // Bruk ParagraphBuilder for å måle tekstbredden
     final paragraphBuilder = ui.ParagraphBuilder(
       ui.ParagraphStyle(
         fontSize: fontSize,
         fontWeight: ui.FontWeight.bold,
       ),
     );
-    paragraphBuilder.addText(timeText);
+    paragraphBuilder.addText(_formatTime(timeRemaining));
     final paragraph = paragraphBuilder.build();
-    paragraph.layout(ui.ParagraphConstraints(width: double.infinity));
-    final textWidth = paragraph.maxIntrinsicWidth;
-    
-    size.setValues(clockSize + spacing + textWidth, fontSize);
+    paragraph.layout(const ui.ParagraphConstraints(width: double.infinity));
+    size.setValues(paragraph.maxIntrinsicWidth, fontSize);
   }
 
   String _formatTime(double seconds) {
@@ -47,68 +40,46 @@ class TimerDisplay extends PositionComponent {
     return '${minutes.toString().padLeft(1, '0')}:${secs.toString().padLeft(2, '0')}';
   }
 
+  ui.Color _displayColor() {
+    if (timeRemaining >= 10) return textColor;
+    final tick = timeRemaining.floor();
+    final progress = (1 - (timeRemaining - tick)).clamp(0.0, 1.0);
+    final redAmount = tick.isEven ? progress : 1 - progress;
+    return ui.Color.lerp(
+      const ui.Color(0xFFFFFFFF),
+      const ui.Color(0xFFFF3B30),
+      redAmount,
+    )!;
+  }
+
   @override
   void render(ui.Canvas canvas) {
     super.render(canvas);
-    
-    // Oppdater størrelse hvis tiden har endret seg
     _updateSize();
-    
-    // Tegn klokkesymbol (enkel sirkel med visere)
-    final clockSize = fontSize * 0.6;
-    final clockCenter = Vector2(clockSize / 2, fontSize / 2);
-    final clockRadius = clockSize / 2 - 2;
-    
-    // Sirkel for klokken
-    final clockPaint = ui.Paint()
-      ..color = textColor
-      ..style = ui.PaintingStyle.stroke
-      ..strokeWidth = 2;
-    
-    canvas.drawCircle(clockCenter.toOffset(), clockRadius, clockPaint);
-    
-    // Visere (12 og 3 posisjoner)
-    final handLength = clockRadius * 0.6;
-    final handPaint = ui.Paint()
-      ..color = textColor
-      ..style = ui.PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..strokeCap = ui.StrokeCap.round;
-    
-    // Kort viser (time hand) peker mot 12
-    canvas.drawLine(
-      clockCenter.toOffset(),
-      clockCenter.toOffset() + Offset(0, -handLength * 0.5),
-      handPaint,
-    );
-    
-    // Lang viser (minute hand) peker mot 3
-    canvas.drawLine(
-      clockCenter.toOffset(),
-      clockCenter.toOffset() + Offset(handLength * 0.7, 0),
-      handPaint,
-    );
-    
-    // Tegn tiden til høyre for klokkesymbolet
-    final timeText = _formatTime(timeRemaining);
+
+    final urgent = timeRemaining < 10;
+    final tick = timeRemaining.floor();
+    final progress = urgent ? (1 - (timeRemaining - tick)).clamp(0.0, 1.0) : 0.0;
+    final pulse = urgent ? 1 + 0.16 * math.sin(progress * math.pi) : 1.0;
+
+    canvas.save();
+    canvas.translate(size.x, 0);
+    canvas.scale(pulse);
+    canvas.translate(-size.x, 0);
+
     final textPaint = TextPaint(
       style: TextStyle(
         fontSize: fontSize,
         fontWeight: FontWeight.bold,
-        color: textColor,
+        color: _displayColor(),
       ),
     );
-    
-    final spacing = 8.0;
-    final textX = clockSize + spacing;
-    final textY = 0.0;
-    
     textPaint.render(
       canvas,
-      timeText,
-      Vector2(textX, textY),
+      _formatTime(timeRemaining),
+      Vector2.zero(),
       anchor: Anchor.topLeft,
     );
+    canvas.restore();
   }
 }
-

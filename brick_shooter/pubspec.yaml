@@ -16,6 +16,8 @@ dependencies:
 
   # Persistence (high score / settings)
   shared_preferences: ^2.5.3
+  google_mobile_ads: ^9.1.0
+  in_app_purchase: ^3.2.3
 
   # (Optional) iOS-style icons for quick UI work; safe to keep
   cupertino_icons: ^1.0.8
