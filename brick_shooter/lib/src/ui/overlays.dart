@@ -125,11 +125,11 @@ class _MenuOverlayState extends State<MenuOverlay> {
                                     MainAxisAlignment.spaceEvenly,
                                 children: [
                                   const _BrickLogo(),
-                                  _Podium(scores: profile.topScores),
                                   _EmeraldChip(
                                     count: profile.emeralds,
                                     onTap: _openEmeralds,
                                   ),
+                                  _Podium(scores: profile.topScores),
                                   _PowerShelf(
                                     profile: profile,
                                     onOpen: _openPower,

@@ -185,6 +185,10 @@ void main() {
     expect(find.text('Extra time'), findsOneWidget);
     expect(find.text('Slow-down'), findsOneWidget);
     expect(find.text('Panic'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('EMERALDS')).dy,
+      lessThan(tester.getTopLeft(find.text('1')).dy),
+    );
   });
 }
 
