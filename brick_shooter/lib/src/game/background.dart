@@ -25,52 +25,66 @@ class BackgroundScroller extends PositionComponent {
 
   @override
   void render(ui.Canvas canvas) {
-    // Draw smooth gradient background (darker teal-blue at top, lighter vibrant teal-blue at bottom)
-    final gradient = ui.Paint()
+    final sky = ui.Paint()
       ..shader = ui.Gradient.linear(
-        ui.Offset(0, 0),
+        const ui.Offset(0, 0),
         ui.Offset(0, height),
-        [
-          const ui.Color(0xFF152028), // Very dark teal-blue at top
-          const ui.Color(0xFF1E3A4A), // Medium dark teal-blue
-          const ui.Color(0xFF2A5566), // Lighter vibrant teal-blue at bottom
+        const [
+          ui.Color(0xFF070B16),
+          ui.Color(0xFF12182C),
+          ui.Color(0xFF1A2744),
+          ui.Color(0xFF24304A),
         ],
-        [0.0, 0.5, 1.0],
+        const [0.0, 0.42, 0.78, 1.0],
       );
-    canvas.drawRect(ui.Rect.fromLTWH(0, 0, width, height), gradient);
+    canvas.drawRect(ui.Rect.fromLTWH(0, 0, width, height), sky);
 
-    // Draw clean static grid (approximately 10 columns x 30 rows)
-    const gridColumns = 10;
-    const gridRows = 30;
-    
-    final cellWidth = width / gridColumns;
-    final cellHeight = height / gridRows;
-    
-    // Subtle grid lines with very low opacity for a clean look
-    final gridPaint = ui.Paint()
-      ..color = const ui.Color(0x15FFFFFF) // Very subtle white
-      ..strokeWidth = 0.5 // Thin lines
-      ..style = ui.PaintingStyle.stroke
-      ..isAntiAlias = true; // Smooth rendering 
-
-    // Draw vertical grid lines
-    for (int i = 0; i <= gridColumns; i++) {
-      final x = i * cellWidth;
-      canvas.drawLine(
-        ui.Offset(x, 0),
-        ui.Offset(x, height),
-        gridPaint,
+    // Soft light down each lane, so the board reads without a hard grid.
+    final lane = width / 4;
+    for (var i = 0; i < 4; i++) {
+      final left = i * lane;
+      canvas.drawRect(
+        ui.Rect.fromLTWH(left, 0, lane, height),
+        ui.Paint()
+          ..shader = ui.Gradient.linear(
+            ui.Offset(left, 0),
+            ui.Offset(left + lane, 0),
+            [
+              const ui.Color(0x00000000),
+              ui.Color(i.isEven ? 0x123C6A9A : 0x102E5680),
+              const ui.Color(0x00000000),
+            ],
+            const [0.0, 0.5, 1.0],
+          ),
       );
     }
 
-    // Draw horizontal grid lines
-    for (int i = 0; i <= gridRows; i++) {
-      final y = i * cellHeight;
-      canvas.drawLine(
-        ui.Offset(0, y),
-        ui.Offset(width, y),
-        gridPaint,
+    final horizon = ui.Paint()
+      ..shader = ui.Gradient.linear(
+        ui.Offset(0, floorY - 90),
+        ui.Offset(0, floorY + 20),
+        const [
+          ui.Color(0x00000000),
+          ui.Color(0x334A7CFF),
+          ui.Color(0x00000000),
+        ],
+        const [0.0, 0.55, 1.0],
       );
+    canvas.drawRect(ui.Rect.fromLTWH(0, floorY - 90, width, 120), horizon);
+
+    final star = ui.Paint()..color = const ui.Color(0x66FFFFFF);
+    const stars = <ui.Offset>[
+      ui.Offset(0.12, 0.08),
+      ui.Offset(0.28, 0.16),
+      ui.Offset(0.47, 0.06),
+      ui.Offset(0.63, 0.14),
+      ui.Offset(0.81, 0.09),
+      ui.Offset(0.18, 0.24),
+      ui.Offset(0.72, 0.22),
+      ui.Offset(0.90, 0.18),
+    ];
+    for (final point in stars) {
+      canvas.drawCircle(ui.Offset(point.dx * width, point.dy * height), 1.3, star);
     }
   }
 

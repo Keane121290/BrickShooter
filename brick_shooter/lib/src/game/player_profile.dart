@@ -158,11 +158,19 @@ class PlayerProfile extends ChangeNotifier {
     }
   }
 
-  void submitScore(int value) {
-    if (value <= 0) return;
+  int submitScore(int value) {
+    if (value <= 0) return 0;
+    var better = 0;
+    var ties = 0;
+    for (final existing in topScores) {
+      if (existing > value) better++;
+      if (existing == value) ties++;
+    }
+    final place = better + ties + 1;
     _insertScore(value);
     notifyListeners();
     _save();
+    return place <= 3 ? place : 0;
   }
 
   void _insertScore(int value) {

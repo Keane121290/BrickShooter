@@ -11,10 +11,12 @@ class ScoreState {
   int score = 0;
   int best = 0;
   bool newBest = false;
+  int podiumPlace = 0;
 
   void reset() {
     score = 0;
     newBest = false;
+    podiumPlace = 0;
   }
 
   void add(int v) => score += v;

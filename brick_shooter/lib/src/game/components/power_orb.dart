@@ -5,6 +5,7 @@ import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/painting.dart';
 
+import '../../ui/power_mark.dart';
 import '../player_profile.dart';
 
 class PowerOrb extends PositionComponent with TapCallbacks {
@@ -15,6 +16,8 @@ class PowerOrb extends PositionComponent with TapCallbacks {
     required Vector2 center,
     required this.count,
     required this.shown,
+    required this.explained,
+    required this.caption,
     required this.urgency,
     required this.onPressed,
   }) {
@@ -28,19 +31,27 @@ class PowerOrb extends PositionComponent with TapCallbacks {
   final ui.Color color;
   final int Function() count;
   final bool Function() shown;
+  final bool Function() explained;
+  final String caption;
   final double Function() urgency;
   final void Function() onPressed;
 
   double _clock = 0;
+  double _explainScale = 1;
 
   @override
   void update(double dt) {
     super.update(dt);
     _clock += dt;
-    final level = shown() ? urgency().clamp(0.0, 1.4) : 0.0;
-    final wave = 0.5 + 0.5 * math.sin(_clock * 5.2);
-    final pulse = level <= 0 ? 1.0 : 1.0 + level * 0.22 * wave;
-    scale = Vector2.all(pulse);
+    final level = shown() ? urgency().clamp(0.0, 1.8) : 0.0;
+    final wave = 0.5 + 0.5 * math.sin(_clock * (4.4 + level * 2.4));
+    final attention = shown() && explained() && level <= 0
+        ? 0.08 * (0.5 + 0.5 * math.sin(_clock * 3.6))
+        : 0.0;
+    final pulse = level <= 0 ? 1.0 + attention : 1.0 + level * 0.30 * wave;
+    final explainTarget = shown() && explained() ? 1.45 : 1.0;
+    _explainScale += (explainTarget - _explainScale) * (1 - math.exp(-dt * 10));
+    scale = Vector2.all(pulse * _explainScale);
   }
 
   @override
@@ -81,66 +92,50 @@ class PowerOrb extends PositionComponent with TapCallbacks {
       ..color = dim ? const ui.Color(0x66FFFFFF) : const ui.Color(0xFFFFFFFF);
     canvas.drawCircle(center, radius - 1.4, ring);
 
-    _drawIcon(canvas, center, radius * 0.42, dim);
+    if (dim) {
+      canvas.saveLayer(
+        ui.Rect.fromCircle(center: center, radius: radius),
+        ui.Paint()..color = const ui.Color(0x88FFFFFF),
+      );
+    }
+    paintPowerMark(
+      canvas,
+      ui.Rect.fromCenter(
+        center: center,
+        width: radius * 1.45,
+        height: radius * 1.45,
+      ),
+      kind,
+      const ui.Color(0xFFFFFFFF),
+    );
+    if (dim) canvas.restore();
     final label = TextPaint(
       style: TextStyle(
-        color: dim ? const ui.Color(0x99FFFFFF) : const ui.Color(0xFFFFFFFF),
-        fontSize: radius * 0.48,
+        color: dim ? const ui.Color(0x99FFFFFF) : color,
+        fontSize: radius * 0.42,
         fontWeight: FontWeight.w800,
       ),
     );
     label.render(
       canvas,
-      '$stock',
-      Vector2(center.dx, center.dy + radius * 0.48),
-      anchor: Anchor.center,
+      '${stock}x',
+      Vector2(center.dx, center.dy + radius + 6),
+      anchor: Anchor.topCenter,
+    );
+    if (!explained()) return;
+    final captionPaint = TextPaint(
+      style: TextStyle(
+        color: color,
+        fontSize: radius * 0.32,
+        fontWeight: FontWeight.w800,
+      ),
+    );
+    captionPaint.render(
+      canvas,
+      caption,
+      Vector2(center.dx, center.dy - radius - 8),
+      anchor: Anchor.bottomCenter,
     );
   }
 
-  void _drawIcon(ui.Canvas canvas, ui.Offset center, double reach, bool dim) {
-    final paint = ui.Paint()
-      ..color = dim ? const ui.Color(0xCCFFFFFF) : const ui.Color(0xFFFFFFFF)
-      ..style = ui.PaintingStyle.stroke
-      ..strokeWidth = reach * 0.28
-      ..strokeCap = ui.StrokeCap.round;
-    final iconCenter = center.translate(0, -reach * 0.35);
-    switch (kind) {
-      case PowerUp.extraTime:
-        canvas.drawLine(
-          iconCenter.translate(-reach, 0),
-          iconCenter.translate(reach, 0),
-          paint,
-        );
-        canvas.drawLine(
-          iconCenter.translate(0, -reach),
-          iconCenter.translate(0, reach),
-          paint,
-        );
-      case PowerUp.slowDown:
-        canvas.drawLine(
-          iconCenter.translate(-reach, -reach * 0.45),
-          iconCenter.translate(reach * 0.2, -reach * 0.45),
-          paint,
-        );
-        canvas.drawLine(
-          iconCenter.translate(-reach * 0.55, reach * 0.45),
-          iconCenter.translate(reach, reach * 0.45),
-          paint,
-        );
-      case PowerUp.panic:
-        paint.style = ui.PaintingStyle.fill;
-        canvas.drawCircle(iconCenter.translate(0, -reach * 0.15), reach * 0.22, paint);
-        canvas.drawRRect(
-          ui.RRect.fromRectAndRadius(
-            ui.Rect.fromCenter(
-              center: iconCenter.translate(0, reach * 0.55),
-              width: reach * 0.38,
-              height: reach * 0.9,
-            ),
-            ui.Radius.circular(reach),
-          ),
-          paint,
-        );
-    }
-  }
 }

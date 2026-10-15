@@ -39,6 +39,7 @@ import 'components/timer_display.dart';
 // Tutorial components
 import 'components/tutorial/dashed_line.dart';
 import 'components/tutorial/finger_hint.dart';
+import 'components/tutorial/lane_highlight.dart';
 
 class MyGame extends FlameGame with TapCallbacks {
   MyGame({
@@ -90,7 +91,8 @@ class MyGame extends FlameGame with TapCallbacks {
   double _slowLeft = 0;
 
   GameButton? _pauseButton;
-  GameButton? _restartButton;
+  GamePhase _pausedFrom = GamePhase.playing;
+  bool _roundClockStarted = false;
 
   // ========== Shooting System ==========
   // One-bullet-per-lane + tiny queue
@@ -101,6 +103,7 @@ class MyGame extends FlameGame with TapCallbacks {
   late double tutorialLineY;
   DashedLine? _dashLine;
   FingerHint? _finger;
+  LaneHighlight? _laneGlow;
   int? _tutorialLane; // lane with gap on the bottom row at hold time
   double _startAnimationTime = 0.0; // Time since game start/restart
   bool _isAnimating = false; // Whether start animations are in progress
@@ -243,7 +246,6 @@ class MyGame extends FlameGame with TapCallbacks {
     // Legg til pause og restart knapper til venstre for poengsummen
     // Knappene skal ha samme høyde som poengsummen (brickHeight) og være vertikalt sentrert
     final buttonSize = brickHeight;
-    const buttonSpacing = 10.0;
     const marginFromEdge = 20.0; // Margin fra venstre kant
     
     // Poengsummen har anchor.topCenter på y=24, så senterlinjen er på y=24 + brickHeight/2
@@ -258,55 +260,50 @@ class MyGame extends FlameGame with TapCallbacks {
       buttonType: ButtonType.pause,
       backgroundColor: const ui.Color(0xFF1A7AB8), // Mørk blå
       iconColor: const ui.Color(0xFFFFFFFF),
-      onTap: () {
-        if (phase == GamePhase.playing) {
-          _pauseGame();
-        } else if (phase == GamePhase.paused) {
-          _resumeGame();
-        }
-      },
+      onTap: _pauseGame,
       x: buttonStartX,
       y: buttonY,
       size: buttonSize,
     );
     add(_pauseButton!);
 
-    _restartButton = GameButton(
-      buttonType: ButtonType.restart,
-      backgroundColor: const ui.Color(0xFF1A7AB8), // Mørk blå
-      iconColor: const ui.Color(0xFFFFFFFF),
-      onTap: () {
-        if (phase == GamePhase.playing || phase == GamePhase.paused) {
-          startGame();
-        }
-      },
-      x: buttonStartX + buttonSize + buttonSpacing,
-      y: buttonY,
-      size: buttonSize,
-    );
-    add(_restartButton!);
-
-    final orbSize = buttonSize * 0.82;
-    var orbY = buttonY + buttonSize + 18 + orbSize / 2;
-    for (final kind in PowerUp.values) {
+    final orbSize = buttonSize * 0.82 * 1.5;
+    // Leave room under each circle for the "5x" count, above the multiplier.
+    final orbY = floorY - 118 - orbSize * 0.72;
+    final kinds = PowerUp.values;
+    for (var i = 0; i < kinds.length; i++) {
+      final kind = kinds[i];
       final tint = switch (kind) {
         PowerUp.extraTime => const ui.Color(0xFF5FD0FF),
         PowerUp.slowDown => const ui.Color(0xFFB388FF),
         PowerUp.panic => const ui.Color(0xFFFF6EC7),
+      };
+      final caption = switch (kind) {
+        PowerUp.extraTime => '+15 seconds',
+        PowerUp.slowDown => 'Slow rows',
+        PowerUp.panic => 'Clear rows',
       };
       add(
         PowerOrb(
           kind: kind,
           color: tint,
           diameter: orbSize,
-          center: Vector2(buttonStartX + buttonSize / 2, orbY),
+          center: Vector2(w * (i + 0.5) / kinds.length, orbY),
           count: () => profile.countOf(kind),
-          shown: () => phase == GamePhase.playing || phase == GamePhase.paused,
+          shown: () =>
+              phase == GamePhase.tutorialDrop ||
+              phase == GamePhase.tutorialHold ||
+              phase == GamePhase.playing ||
+              phase == GamePhase.paused,
+          explained: () =>
+              phase == GamePhase.tutorialDrop ||
+              phase == GamePhase.tutorialHold ||
+              phase == GamePhase.paused,
+          caption: caption,
           urgency: () => _powerUrgency(kind),
           onPressed: () => _usePower(kind),
         ),
       );
-      orbY += orbSize + 12;
     }
 
     _laneLocked = List<bool>.filled(GameConfig.lanes, false);
@@ -337,11 +334,9 @@ class MyGame extends FlameGame with TapCallbacks {
     }
 
     if (phase == GamePhase.tutorialHold) {
-      // Tap-to-play: only correct lane starts
+      // Tap-to-play: only the correct lane sends the first shot.
       if (_tutorialLane != null && lane == _tutorialLane) {
         _enqueueFire(lane);
-        _clearTutorialUi();
-        _setPhase(GamePhase.playing);
       }
       return;
     }
@@ -373,6 +368,12 @@ class MyGame extends FlameGame with TapCallbacks {
 
     // Cancel higher bullets in same lane that would overshoot
     bulletController.cancelHigherInLane(lane, target.bottomY);
+
+    _beginRoundClock();
+    if (phase == GamePhase.tutorialHold || phase == GamePhase.tutorialDrop) {
+      _clearTutorialUi();
+      _setPhase(GamePhase.playing);
+    }
 
     bulletController.shoot(
       lane: lane,
@@ -429,17 +430,21 @@ class MyGame extends FlameGame with TapCallbacks {
     if (p == GamePhase.menu) {
       overlays.add(MenuOverlay.id);
       overlays.remove(GameOverOverlay.id);
+      overlays.remove(PauseOverlay.id);
     } else if (p == GamePhase.playing ||
         p == GamePhase.tutorialDrop ||
         p == GamePhase.tutorialHold) {
       overlays.remove(MenuOverlay.id);
       overlays.remove(GameOverOverlay.id);
+      overlays.remove(PauseOverlay.id);
     } else if (p == GamePhase.paused) {
       overlays.remove(MenuOverlay.id);
       overlays.remove(GameOverOverlay.id);
+      overlays.add(PauseOverlay.id);
     } else {
       overlays.add(GameOverOverlay.id);
       overlays.remove(MenuOverlay.id);
+      overlays.remove(PauseOverlay.id);
     }
   }
 
@@ -463,9 +468,10 @@ class MyGame extends FlameGame with TapCallbacks {
       _laneQueue[i] = 0;
     }
 
-    // Reset difficulty/speed to start speed
+    // Speed stays at the start value until the first shot leaves.
+    _roundClockStarted = false;
     difficulty.resetToStartSpeed();
-    difficulty.setPaused(false);
+    difficulty.setPaused(true);
 
     if (!children.contains(difficulty)) add(difficulty);
     if (!children.contains(rowController)) add(rowController);
@@ -496,10 +502,15 @@ class MyGame extends FlameGame with TapCallbacks {
     _setPhase(GamePhase.tutorialDrop);
     bulletController.setPaused(false);
 
-    // Set pause button icon to pause (not play)
     if (_pauseButton != null) {
       _pauseButton!.buttonType = ButtonType.pause;
     }
+  }
+
+  void _beginRoundClock() {
+    if (_roundClockStarted) return;
+    _roundClockStarted = true;
+    difficulty.setPaused(false);
   }
 
   void backToMenu() {
@@ -511,25 +522,25 @@ class MyGame extends FlameGame with TapCallbacks {
   }
 
   void _pauseGame() {
-    if (phase != GamePhase.playing) return;
+    if (phase != GamePhase.playing &&
+        phase != GamePhase.tutorialDrop &&
+        phase != GamePhase.tutorialHold) {
+      return;
+    }
+    _pausedFrom = phase;
     bulletController.setPaused(true);
     difficulty.setPaused(true);
     background.setRunning(false);
     _setPhase(GamePhase.paused);
-    if (_pauseButton != null) {
-      _pauseButton!.buttonType = ButtonType.play; // Endre ikon til play
-    }
   }
 
-  void _resumeGame() {
+  void resumeGame() {
     if (phase != GamePhase.paused) return;
+    final back = _pausedFrom;
     bulletController.setPaused(false);
-    difficulty.setPaused(false);
+    difficulty.setPaused(!_roundClockStarted);
     background.setRunning(true);
-    _setPhase(GamePhase.playing);
-    if (_pauseButton != null) {
-      _pauseButton!.buttonType = ButtonType.pause; // Endre ikon tilbake til pause
-    }
+    _setPhase(back);
   }
 
   void gameOver() {
@@ -538,7 +549,7 @@ class MyGame extends FlameGame with TapCallbacks {
     background.setRunning(false);
     bulletController.setPaused(true);
     _clearTutorialUi();
-    profile.submitScore(score.score);
+    score.podiumPlace = profile.submitScore(score.score);
     _setPhase(GamePhase.gameOver);
   }
 
@@ -581,6 +592,9 @@ class MyGame extends FlameGame with TapCallbacks {
           }
           if (_finger != null) {
             _finger!.setOpacity(fadeProgress);
+          }
+          if (_laneGlow != null) {
+            _laneGlow!.setOpacity(fadeProgress);
           }
         }
         
@@ -696,19 +710,26 @@ class MyGame extends FlameGame with TapCallbacks {
     }
   }
 
+  bool _rowsPastSixty() {
+    final bottom = rowController.getBottomRow();
+    if (bottom == null || size.y <= 0) return false;
+    return bottom.bottomY > size.y * 0.60;
+  }
+
   double _powerUrgency(PowerUp kind) {
+    const strong = 1.55;
     switch (kind) {
       case PowerUp.extraTime:
-        return _timeRemaining < 10 ? 1 : 0;
+        return _timeRemaining < 10 ? strong : 0;
       case PowerUp.slowDown:
         final rps = rowHeight <= 0 ? 0.0 : difficulty.rowPxPerSec / rowHeight;
-        if (rps < 2.5) return 0;
-        final steps = ((rps - 2.5) / 0.5).floor() + 1;
-        return (0.55 + steps * 0.2).clamp(0.55, 1.35);
+        final speedPulse = rps < 2.5
+            ? 0.0
+            : (0.55 + (((rps - 2.5) / 0.5).floor() + 1) * 0.2).clamp(0.55, 1.35);
+        final deep = _rowsPastSixty() ? strong : 0.0;
+        return speedPulse > deep ? speedPulse : deep;
       case PowerUp.panic:
-        final bottom = rowController.getBottomRow();
-        if (bottom == null) return 0;
-        return bottom.bottomY > size.y * 0.75 ? 1 : 0;
+        return _rowsPastSixty() ? strong : 0;
     }
   }
 
@@ -786,18 +807,35 @@ class MyGame extends FlameGame with TapCallbacks {
     _dashLine?.removeFromParent();
     final xCenter = _tutorialLane! * laneWidth + laneWidth / 2;
     
-    // Position hint between tutorial stop position and multiplier line
-    // Multiplier line is at floorY, multiplier text/bar is at floorY - 50
-    // Tutorial stop position is at minimumBottomY
-    // Add spacing from both lines
+    // Keep the hint above the power-up row, which sits over the multiplier.
     const spacingFromTutorialStop = 30.0;
-    const spacingFromMultiplier = 30.0;
     final dashLineTop = minimumBottomY + spacingFromTutorialStop;
-    final dashLineBottom = floorY - 50 - spacingFromMultiplier;
+    final orbSize = brickHeight * 0.82 * 1.5;
+    final orbCenter = floorY - 118 - orbSize * 0.72;
+    final helpTop = orbCenter - (orbSize / 2 + 28) * 1.45;
+    var dashLineBottom = helpTop - 16;
+    if (dashLineBottom < dashLineTop + 48) {
+      dashLineBottom = dashLineTop + 48;
+    }
     
     // Position hand in the middle of the dashed line area
     final hintY = dashLineTop + (dashLineBottom - dashLineTop) * 0.5;
     
+    _laneGlow?.removeFromParent();
+    _laneGlow = LaneHighlight(
+      x: _tutorialLane! * laneWidth,
+      width: laneWidth,
+      top: GameConfig.boardTop,
+      height: (dashLineBottom - GameConfig.boardTop)
+          .clamp(80, floorY - GameConfig.boardTop)
+          .toDouble(),
+    );
+    if (_startAnimationTime >= 1.0) {
+      final fadeProgress = ((_startAnimationTime - 1.0) / 0.2).clamp(0.0, 1.0);
+      _laneGlow!.setOpacity(fadeProgress);
+    }
+    add(_laneGlow!);
+
     _dashLine = DashedLine(
       x: xCenter,
       yTop: dashLineTop,
@@ -835,8 +873,10 @@ class MyGame extends FlameGame with TapCallbacks {
   void _clearTutorialUi() {
     _dashLine?.removeFromParent();
     _finger?.removeFromParent();
+    _laneGlow?.removeFromParent();
     _dashLine = null;
     _finger = null;
+    _laneGlow = null;
     _tutorialLane = null;
     _isAnimating = false;
     _startAnimationTime = 0.0;

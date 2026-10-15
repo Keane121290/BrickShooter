@@ -28,6 +28,7 @@ Future<void> main() async {
           game: game,
           overlayBuilderMap: {
             MenuOverlay.id: (context, g) => MenuOverlay(game: g as MyGame),
+            PauseOverlay.id: (context, g) => PauseOverlay(game: g as MyGame),
             GameOverOverlay.id: (context, g) => GameOverOverlay(game: g as MyGame),
           },
           initialActiveOverlays: const [MenuOverlay.id],

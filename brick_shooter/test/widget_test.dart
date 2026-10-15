@@ -185,9 +185,11 @@ void main() {
     expect(find.text('Extra time'), findsOneWidget);
     expect(find.text('Slow-down'), findsOneWidget);
     expect(find.text('Panic'), findsOneWidget);
+    expect(find.text('EMERALDS'), findsNothing);
+    expect(find.text('5x'), findsNWidgets(3));
     expect(
-      tester.getTopLeft(find.text('EMERALDS')).dy,
-      lessThan(tester.getTopLeft(find.text('1')).dy),
+      tester.getTopLeft(find.byKey(const Key('menu-emeralds'))).dy,
+      lessThan(tester.getTopLeft(find.byKey(const Key('podium-1'))).dy),
     );
   });
 }

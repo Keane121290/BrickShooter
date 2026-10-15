@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../game/my_game.dart';
 import '../game/player_profile.dart';
 import '../purchases/emerald_shop.dart';
+import 'power_mark.dart';
 
 class MenuOverlay extends StatefulWidget {
   static const id = 'menu';
@@ -125,9 +126,17 @@ class _MenuOverlayState extends State<MenuOverlay> {
                                     MainAxisAlignment.spaceEvenly,
                                 children: [
                                   const _BrickLogo(),
-                                  _EmeraldChip(
-                                    count: profile.emeralds,
-                                    onTap: _openEmeralds,
+                                  Column(
+                                    children: [
+                                      _EmeraldChip(
+                                        key: const Key('menu-emeralds'),
+                                        count: profile.emeralds,
+                                        showLabel: false,
+                                        onTap: _openEmeralds,
+                                      ),
+                                      const SizedBox(height: 6),
+                                      _BuyCart(onTap: _openEmeralds),
+                                    ],
                                   ),
                                   _Podium(scores: profile.topScores),
                                   _PowerShelf(
@@ -194,19 +203,19 @@ class _DailyRewardDialog extends StatelessWidget {
               children: [
                 _RewardLine(
                   color: Color(0xFF5FD0FF),
-                  icon: Icons.add,
+                  kind: PowerUp.extraTime,
                   title: 'Extra time',
                   detail: '+15 seconds',
                 ),
                 _RewardLine(
                   color: Color(0xFFB388FF),
-                  icon: Icons.speed,
+                  kind: PowerUp.slowDown,
                   title: 'Slow-down',
                   detail: 'Slower rows for 5 seconds',
                 ),
                 _RewardLine(
                   color: Color(0xFFFF6EC7),
-                  icon: Icons.bolt,
+                  kind: PowerUp.panic,
                   title: 'Panic',
                   detail: 'Clears every visible row',
                 ),
@@ -230,6 +239,143 @@ class _DailyRewardDialog extends StatelessWidget {
               child: const Text(
                 'Nice!',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PauseOverlay extends StatelessWidget {
+  static const id = 'pause';
+  final MyGame game;
+  const PauseOverlay({super.key, required this.game});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      type: MaterialType.transparency,
+      child: Stack(
+        children: [
+          const Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 250,
+            child: ColoredBox(color: Color(0xC0101820)),
+          ),
+          Align(
+            alignment: const Alignment(0, -0.25),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 360),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0xF01E3542), Color(0xF0121C24)],
+                    ),
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(color: const Color(0xFF2A6E96), width: 1.5),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x80000000),
+                        blurRadius: 32,
+                        offset: Offset(0, 18),
+                      ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 28, 24, 22),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'Paused',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: ElevatedButton(
+                            key: const Key('pause-continue'),
+                            onPressed: game.resumeGame,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF53D769),
+                              foregroundColor: const Color(0xFF102016),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              textStyle: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            child: const Text('Continue'),
+                          ),
+                        ),
+                        const SizedBox(height: 22),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: OutlinedButton(
+                            key: const Key('pause-restart'),
+                            onPressed: game.startGame,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              side: const BorderSide(
+                                color: Color(0xFF8BE9FF),
+                                width: 1.6,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              textStyle: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            child: const Text('Restart'),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: OutlinedButton(
+                            key: const Key('pause-menu'),
+                            onPressed: game.backToMenu,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              side: const BorderSide(
+                                color: Color(0xFFFFD56A),
+                                width: 1.6,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              textStyle: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            child: const Text('Menu'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -296,6 +442,9 @@ class _GameOverOverlayState extends State<GameOverOverlay>
                   score: game.score.score,
                   best: game.score.best,
                   isNewBest: game.score.newBest,
+                  place: game.score.podiumPlace > 0
+                      ? game.score.podiumPlace
+                      : (game.score.newBest ? 1 : 0),
                   multiplier: game.multiplier.getCurrentMultiplier(),
                   emeralds: game.profile.emeraldsThisRound,
                   onPlayAgain: game.startGame,
@@ -304,10 +453,15 @@ class _GameOverOverlayState extends State<GameOverOverlay>
               ),
             ),
           ),
-          if (game.score.newBest)
-            const Positioned.fill(
+          if (game.score.podiumPlace > 0 || game.score.newBest)
+            Positioned.fill(
               child: IgnorePointer(
-                child: _HighScoreConfetti(key: Key('highscore-confetti')),
+                child: _HighScoreConfetti(
+                  key: const Key('highscore-confetti'),
+                  place: game.score.podiumPlace > 0
+                      ? game.score.podiumPlace
+                      : 1,
+                ),
               ),
             ),
         ],
@@ -320,6 +474,7 @@ class _GameOverCard extends StatelessWidget {
   final int score;
   final int best;
   final bool isNewBest;
+  final int place;
   final int multiplier;
   final int emeralds;
   final VoidCallback onPlayAgain;
@@ -329,6 +484,7 @@ class _GameOverCard extends StatelessWidget {
     required this.score,
     required this.best,
     required this.isNewBest,
+    required this.place,
     required this.multiplier,
     required this.emeralds,
     required this.onPlayAgain,
@@ -364,7 +520,23 @@ class _GameOverCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const _BrickRow(),
-                const SizedBox(height: 18),
+                if (place >= 1 && place <= 3) ...[
+                  const SizedBox(height: 12),
+                  _PlaceTrophy(place: place),
+                  if (place > 1) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      place == 2 ? '2nd place' : '3rd place',
+                      style: const TextStyle(
+                        color: Color(0xFFFFD56A),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                  ],
+                ],
+                const SizedBox(height: 14),
                 const Text(
                   'Game over',
                   style: TextStyle(
@@ -593,7 +765,7 @@ class _Podium extends StatelessWidget {
           child: _PodiumPlace(
             place: 2,
             score: at(1),
-            height: 78,
+            height: 108,
             color: const Color(0xFF9BB4C2),
           ),
         ),
@@ -602,7 +774,7 @@ class _Podium extends StatelessWidget {
           child: _PodiumPlace(
             place: 1,
             score: at(0),
-            height: 104,
+            height: 136,
             color: const Color(0xFFFFD56A),
           ),
         ),
@@ -611,7 +783,7 @@ class _Podium extends StatelessWidget {
           child: _PodiumPlace(
             place: 3,
             score: at(2),
-            height: 64,
+            height: 88,
             color: const Color(0xFFE7A07A),
           ),
         ),
@@ -636,6 +808,7 @@ class _PodiumPlace extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
       children: [
         Text(
           score > 0 ? _formatScore(score) : '—',
@@ -646,22 +819,22 @@ class _PodiumPlace extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        Container(
+        SizedBox(
+          key: Key('podium-$place'),
           height: height,
-          alignment: Alignment.topCenter,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.18),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            border: Border.all(color: color.withValues(alpha: 0.7)),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              '$place',
-              style: TextStyle(
-                color: color,
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
+          width: height * 0.92,
+          child: CustomPaint(
+            painter: _TrophyPainter(color: color),
+            child: Align(
+              alignment: const Alignment(0, -0.46),
+              child: Text(
+                '$place',
+                style: TextStyle(
+                  color: const Color(0xFF3A2A14),
+                  fontSize: height * 0.22,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
               ),
             ),
           ),
@@ -671,55 +844,147 @@ class _PodiumPlace extends StatelessWidget {
   }
 }
 
+class _TrophyPainter extends CustomPainter {
+  final Color color;
+  const _TrophyPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final cx = w / 2;
+    final cup = Color.lerp(Colors.white, color, 0.72)!;
+    final handleColor = Color.lerp(const Color(0xFF8A5A18), color, 0.55)!;
+    final base = HSLColor.fromColor(color)
+        .withLightness(0.46)
+        .withSaturation(0.28)
+        .toColor();
+    final plaque = Color.lerp(Colors.white, base, 0.42)!;
+
+    final handle = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.075
+      ..strokeCap = StrokeCap.round
+      ..color = handleColor;
+    canvas.drawPath(
+      Path()
+        ..moveTo(w * 0.28, h * 0.08)
+        ..cubicTo(w * 0.02, h * 0.02, w * 0.02, h * 0.34, w * 0.32, h * 0.40),
+      handle,
+    );
+    canvas.drawPath(
+      Path()
+        ..moveTo(w * 0.72, h * 0.08)
+        ..cubicTo(w * 0.98, h * 0.02, w * 0.98, h * 0.34, w * 0.68, h * 0.40),
+      handle,
+    );
+
+    final bowl = Path()
+      ..moveTo(w * 0.26, h * 0.02)
+      ..lineTo(w * 0.74, h * 0.02)
+      ..lineTo(w * 0.71, h * 0.20)
+      ..cubicTo(w * 0.72, h * 0.38, w * 0.62, h * 0.50, cx, h * 0.50)
+      ..cubicTo(w * 0.38, h * 0.50, w * 0.28, h * 0.38, w * 0.29, h * 0.20)
+      ..close();
+    canvas.drawPath(bowl, Paint()..color = cup);
+    canvas.drawPath(
+      bowl,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = w * 0.015
+        ..color = handleColor.withValues(alpha: 0.35),
+    );
+
+    final bead = Paint()..color = cup;
+    canvas.drawCircle(Offset(cx, h * 0.565), w * 0.055, bead);
+    canvas.drawCircle(Offset(cx, h * 0.655), w * 0.078, bead);
+
+    canvas.drawPath(
+      Path()
+        ..moveTo(w * 0.30, h * 0.76)
+        ..lineTo(w * 0.70, h * 0.76)
+        ..lineTo(w * 0.88, h * 0.98)
+        ..lineTo(w * 0.12, h * 0.98)
+        ..close(),
+      Paint()..color = base,
+    );
+    canvas.drawPath(
+      Path()
+        ..moveTo(w * 0.38, h * 0.82)
+        ..lineTo(w * 0.62, h * 0.82)
+        ..lineTo(w * 0.72, h * 0.94)
+        ..lineTo(w * 0.28, h * 0.94)
+        ..close(),
+      Paint()..color = plaque,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _TrophyPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
 class _EmeraldChip extends StatelessWidget {
   final int count;
   final String label;
+  final bool showLabel;
   final VoidCallback? onTap;
   const _EmeraldChip({
+    super.key,
     required this.count,
     this.label = 'EMERALDS',
+    this.showLabel = true,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final big = !showLabel;
+    final gem = big ? 24.0 : 12.0;
+    final gap = big ? 12.0 : 8.0;
+    final font = big ? 36.0 : 18.0;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(999),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          padding: EdgeInsets.symmetric(
+            horizontal: big ? 28 : 14,
+            vertical: big ? 16 : 8,
+          ),
           decoration: BoxDecoration(
             color: const Color(0x33FF2D3A),
             borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: const Color(0xFFFF2D3A)),
+            border: Border.all(color: const Color(0xFFFF2D3A), width: big ? 2 : 1),
           ),
           child: FittedBox(
-            fit: BoxFit.scaleDown,
+            fit: showLabel ? BoxFit.scaleDown : BoxFit.none,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const _Gem(),
-                const SizedBox(width: 8),
+                _Gem(size: gem),
+                SizedBox(width: gap),
                 Text(
                   '$count',
-                  style: const TextStyle(
-                    color: Color(0xFFFF8A93),
-                    fontSize: 18,
+                  style: TextStyle(
+                    color: const Color(0xFFFF8A93),
+                    fontSize: font,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: Color(0xFFFFB4BA),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.1,
+                if (showLabel) ...[
+                  SizedBox(width: gap),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: Color(0xFFFFB4BA),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.1,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -775,7 +1040,7 @@ class _PowerShelf extends StatelessWidget {
                 detail: '+15 seconds',
                 count: profile.extraTime,
                 color: const Color(0xFF5FD0FF),
-                icon: Icons.add,
+                kind: PowerUp.extraTime,
                 onTap: () => onOpen(PowerUp.extraTime),
               ),
             ),
@@ -785,7 +1050,7 @@ class _PowerShelf extends StatelessWidget {
                 detail: 'Slower 5s',
                 count: profile.slowDown,
                 color: const Color(0xFFB388FF),
-                icon: Icons.speed,
+                kind: PowerUp.slowDown,
                 onTap: () => onOpen(PowerUp.slowDown),
               ),
             ),
@@ -795,7 +1060,7 @@ class _PowerShelf extends StatelessWidget {
                 detail: 'Clears rows',
                 count: profile.panic,
                 color: const Color(0xFFFF6EC7),
-                icon: Icons.bolt,
+                kind: PowerUp.panic,
                 onTap: () => onOpen(PowerUp.panic),
               ),
             ),
@@ -806,12 +1071,47 @@ class _PowerShelf extends StatelessWidget {
   }
 }
 
+class _PowerMark extends StatelessWidget {
+  final PowerUp kind;
+  final Color color;
+  final double size;
+
+  const _PowerMark({
+    required this.kind,
+    required this.color,
+    required this.size,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size.square(size),
+      painter: _PowerMarkPainter(kind: kind, color: color),
+    );
+  }
+}
+
+class _PowerMarkPainter extends CustomPainter {
+  final PowerUp kind;
+  final Color color;
+  const _PowerMarkPainter({required this.kind, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    paintPowerMark(canvas, Offset.zero & size, kind, color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PowerMarkPainter oldDelegate) =>
+      oldDelegate.kind != kind || oldDelegate.color != color;
+}
+
 class _PowerChip extends StatelessWidget {
   final String title;
   final String detail;
   final int count;
   final Color color;
-  final IconData icon;
+  final PowerUp kind;
   final VoidCallback onTap;
 
   const _PowerChip({
@@ -819,7 +1119,7 @@ class _PowerChip extends StatelessWidget {
     required this.detail,
     required this.count,
     required this.color,
-    required this.icon,
+    required this.kind,
     required this.onTap,
   });
 
@@ -832,6 +1132,16 @@ class _PowerChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         child: Column(
           children: [
+            Text(
+              '${count}x',
+              style: TextStyle(
+                color: color,
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                height: 1,
+              ),
+            ),
+            const SizedBox(height: 4),
             Container(
               width: 32,
               height: 32,
@@ -840,7 +1150,9 @@ class _PowerChip extends StatelessWidget {
                 color: color.withValues(alpha: 0.22),
                 border: Border.all(color: color),
               ),
-              child: Icon(icon, color: color, size: 16),
+              child: Center(
+                child: _PowerMark(kind: kind, color: color, size: 18),
+              ),
             ),
             const SizedBox(height: 6),
             Text(
@@ -865,9 +1177,77 @@ class _PowerChip extends StatelessWidget {
                 height: 1.2,
               ),
             ),
-            const SizedBox(height: 6),
-            _StashCount(count: '$count', color: color, width: 46, height: 42),
+            const SizedBox(height: 8),
+            _BuyCart(onTap: onTap, color: color),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BuyCart extends StatelessWidget {
+  final VoidCallback onTap;
+  final Color color;
+
+  const _BuyCart({
+    required this.onTap,
+    this.color = const Color(0xFFFF8A93),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.16),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: color.withValues(alpha: 0.9)),
+          ),
+          child: Icon(Icons.shopping_cart_outlined, color: color, size: 18),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlaceTrophy extends StatelessWidget {
+  final int place;
+  const _PlaceTrophy({required this.place});
+
+  @override
+  Widget build(BuildContext context) {
+    final height = switch (place) {
+      1 => 96.0,
+      2 => 80.0,
+      _ => 68.0,
+    };
+    final color = switch (place) {
+      1 => const Color(0xFFFFD56A),
+      2 => const Color(0xFFC5D0D8),
+      _ => const Color(0xFFE7A07A),
+    };
+    return SizedBox(
+      height: height,
+      width: height * 0.92,
+      child: CustomPaint(
+        painter: _TrophyPainter(color: color),
+        child: Align(
+          alignment: const Alignment(0, -0.46),
+          child: Text(
+            '$place',
+            style: TextStyle(
+              color: const Color(0xFF3A2A14),
+              fontSize: height * 0.22,
+              fontWeight: FontWeight.w900,
+              height: 1,
+            ),
+          ),
         ),
       ),
     );
@@ -1113,17 +1493,6 @@ class _PowerOfferDialogState extends State<_PowerOfferDialog> {
     }
   }
 
-  IconData get _icon {
-    switch (widget.kind) {
-      case PowerUp.extraTime:
-        return Icons.add;
-      case PowerUp.slowDown:
-        return Icons.speed;
-      case PowerUp.panic:
-        return Icons.bolt;
-    }
-  }
-
   Future<void> _openEmeralds() async {
     await showDialog<void>(
       context: context,
@@ -1151,7 +1520,9 @@ class _PowerOfferDialogState extends State<_PowerOfferDialog> {
               color: _color.withValues(alpha: 0.2),
               border: Border.all(color: _color, width: 2),
             ),
-            child: Icon(_icon, color: _color, size: 32),
+            child: Center(
+              child: _PowerMark(kind: widget.kind, color: _color, size: 36),
+            ),
           ),
           const SizedBox(height: 12),
           Text(
@@ -1711,13 +2082,13 @@ class _Pill extends StatelessWidget {
 
 class _RewardLine extends StatelessWidget {
   final Color color;
-  final IconData icon;
+  final PowerUp kind;
   final String title;
   final String detail;
 
   const _RewardLine({
     required this.color,
-    required this.icon,
+    required this.kind,
     required this.title,
     required this.detail,
   });
@@ -1736,7 +2107,7 @@ class _RewardLine extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              Icon(icon, color: color, size: 20),
+              _PowerMark(kind: kind, color: color, size: 22),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -1944,7 +2315,8 @@ class _Speck {
 }
 
 class _HighScoreConfetti extends StatefulWidget {
-  const _HighScoreConfetti({super.key});
+  final int place;
+  const _HighScoreConfetti({super.key, this.place = 1});
 
   @override
   State<_HighScoreConfetti> createState() => _HighScoreConfettiState();
@@ -1973,9 +2345,19 @@ class _HighScoreConfettiState extends State<_HighScoreConfetti>
       duration: const Duration(milliseconds: 5200),
     )..forward();
     final random = math.Random(42);
-    _specks = List<_Speck>.generate(52, (index) {
+    final count = switch (widget.place) {
+      1 => 52,
+      2 => 28,
+      _ => 14,
+    };
+    final burst = switch (widget.place) {
+      1 => 1.0,
+      2 => 0.72,
+      _ => 0.48,
+    };
+    _specks = List<_Speck>.generate(count, (index) {
       final angle = -math.pi / 2 + (random.nextDouble() - 0.5) * math.pi * 0.9;
-      final speed = 140 + random.nextDouble() * 260;
+      final speed = (140 + random.nextDouble() * 260) * burst;
       return _Speck(
         originX: 0.42 + random.nextDouble() * 0.16,
         originY: 0.28 + random.nextDouble() * 0.08,

@@ -40,14 +40,14 @@ class FingerHint extends TextComponent {
   @override
   void update(double dt) {
     super.update(dt);
-    // Tapping animation: move up and down
+    // Tapping animation: press down, then lift.
     _tapTime += dt;
-    final tapCycle = (_tapTime * 2.0) % 1.0; // 0.5 second cycle
-    final tapOffset = (tapCycle < 0.5) 
-        ? (tapCycle * 2.0) * 8.0  // Move down (0 to 8 pixels)
-        : (1.0 - (tapCycle - 0.5) * 2.0) * 8.0; // Move back up (8 to 0 pixels)
-    
+    final tapCycle = (_tapTime * 2.4) % 1.0;
+    final pressed = tapCycle < 0.28 ? tapCycle / 0.28 : (1 - tapCycle) / 0.72;
+    final tapOffset = (pressed.clamp(0.0, 1.0) as num).toDouble() * 18.0;
+    final squash = 1 - (pressed.clamp(0.0, 1.0) as num).toDouble() * 0.14;
     position = Vector2(basePosition.x, basePosition.y + tapOffset);
+    scale.setValues(squash, 1 + (1 - squash));
   }
 }
 
