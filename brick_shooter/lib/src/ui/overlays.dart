@@ -108,8 +108,8 @@ class _MenuOverlayState extends State<MenuOverlay> {
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    // Start sits about a quarter of the screen above the bottom.
-                    final bottomGap = constraints.maxHeight * 0.25;
+                    // Start sits a little lower so the menu has more air.
+                    final bottomGap = constraints.maxHeight * 0.14;
                     return Column(
                       children: [
                         Expanded(
@@ -126,17 +126,19 @@ class _MenuOverlayState extends State<MenuOverlay> {
                                     MainAxisAlignment.spaceEvenly,
                                 children: [
                                   const _BrickLogo(),
-                                  Column(
-                                    children: [
-                                      _EmeraldChip(
-                                        key: const Key('menu-emeralds'),
-                                        count: profile.emeralds,
-                                        showLabel: false,
-                                        onTap: _openEmeralds,
-                                      ),
-                                      const SizedBox(height: 6),
-                                      _BuyCart(onTap: _openEmeralds),
-                                    ],
+                                  _AttentionPulse(
+                                    child: Column(
+                                      children: [
+                                        _EmeraldChip(
+                                          key: const Key('menu-emeralds'),
+                                          count: profile.emeralds,
+                                          showLabel: false,
+                                          onTap: _openEmeralds,
+                                        ),
+                                        const SizedBox(height: 6),
+                                        _BuyCart(onTap: _openEmeralds),
+                                      ],
+                                    ),
                                   ),
                                   _Podium(scores: profile.topScores),
                                   _PowerShelf(
@@ -280,7 +282,10 @@ class PauseOverlay extends StatelessWidget {
                       colors: [Color(0xF01E3542), Color(0xF0121C24)],
                     ),
                     borderRadius: BorderRadius.circular(28),
-                    border: Border.all(color: const Color(0xFF2A6E96), width: 1.5),
+                    border: Border.all(
+                      color: const Color(0xFF2A6E96),
+                      width: 1.5,
+                    ),
                     boxShadow: const [
                       BoxShadow(
                         color: Color(0x80000000),
@@ -572,7 +577,7 @@ class _GameOverCard extends StatelessWidget {
                   const _NewBestChip(),
                 ],
                 const SizedBox(height: 16),
-                _EmeraldChip(count: emeralds, label: 'EMERALDS THIS ROUND'),
+                _EmeraldChip(count: emeralds, label: 'THIS ROUND'),
                 const SizedBox(height: 16),
                 Row(
                   children: [
@@ -855,10 +860,9 @@ class _TrophyPainter extends CustomPainter {
     final cx = w / 2;
     final cup = Color.lerp(Colors.white, color, 0.72)!;
     final handleColor = Color.lerp(const Color(0xFF8A5A18), color, 0.55)!;
-    final base = HSLColor.fromColor(color)
-        .withLightness(0.46)
-        .withSaturation(0.28)
-        .toColor();
+    final base = HSLColor.fromColor(
+      color,
+    ).withLightness(0.46).withSaturation(0.28).toColor();
     final plaque = Color.lerp(Colors.white, base, 0.42)!;
 
     final handle = Paint()
@@ -956,7 +960,10 @@ class _EmeraldChip extends StatelessWidget {
           decoration: BoxDecoration(
             color: const Color(0x33FF2D3A),
             borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: const Color(0xFFFF2D3A), width: big ? 2 : 1),
+            border: Border.all(
+              color: const Color(0xFFFF2D3A),
+              width: big ? 2 : 1,
+            ),
           ),
           child: FittedBox(
             fit: showLabel ? BoxFit.scaleDown : BoxFit.none,
@@ -1023,50 +1030,48 @@ class _PowerShelf extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0x66141C26),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0x334A6A80)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(4, 12, 4, 10),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: _PowerChip(
-                title: 'Extra time',
-                detail: '+15 seconds',
-                count: profile.extraTime,
-                color: const Color(0xFF5FD0FF),
-                kind: PowerUp.extraTime,
-                onTap: () => onOpen(PowerUp.extraTime),
-              ),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: _AttentionPulse(
+            child: _PowerChip(
+              title: 'Extra time',
+              detail: '+15 seconds',
+              count: profile.extraTime,
+              color: const Color(0xFF5FD0FF),
+              kind: PowerUp.extraTime,
+              onTap: () => onOpen(PowerUp.extraTime),
             ),
-            Expanded(
-              child: _PowerChip(
-                title: 'Slow-down',
-                detail: 'Slower 5s',
-                count: profile.slowDown,
-                color: const Color(0xFFB388FF),
-                kind: PowerUp.slowDown,
-                onTap: () => onOpen(PowerUp.slowDown),
-              ),
-            ),
-            Expanded(
-              child: _PowerChip(
-                title: 'Panic',
-                detail: 'Clears rows',
-                count: profile.panic,
-                color: const Color(0xFFFF6EC7),
-                kind: PowerUp.panic,
-                onTap: () => onOpen(PowerUp.panic),
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _AttentionPulse(
+            child: _PowerChip(
+              title: 'Slow-down',
+              detail: 'Slower 5s',
+              count: profile.slowDown,
+              color: const Color(0xFFB388FF),
+              kind: PowerUp.slowDown,
+              onTap: () => onOpen(PowerUp.slowDown),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _AttentionPulse(
+            child: _PowerChip(
+              title: 'Panic',
+              detail: 'Clears rows',
+              count: profile.panic,
+              color: const Color(0xFFFF6EC7),
+              kind: PowerUp.panic,
+              onTap: () => onOpen(PowerUp.panic),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1125,61 +1130,75 @@ class _PowerChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        child: Column(
-          children: [
-            Text(
-              '${count}x',
-              style: TextStyle(
-                color: color,
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                height: 1,
-              ),
+    return Material(
+      color: const Color(0xE616242E),
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(6, 10, 6, 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: color.withValues(alpha: 0.9)),
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [color.withValues(alpha: 0.28), const Color(0x00101820)],
             ),
-            const SizedBox(height: 4),
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: color.withValues(alpha: 0.22),
-                border: Border.all(color: color),
+          ),
+          child: Column(
+            children: [
+              Text(
+                '${count}x',
+                style: TextStyle(
+                  color: color,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                ),
               ),
-              child: Center(
-                child: _PowerMark(kind: kind, color: color, size: 18),
+              const SizedBox(height: 4),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: color.withValues(alpha: 0.22),
+                  border: Border.all(color: color),
+                ),
+                child: Center(
+                  child: _PowerMark(kind: kind, color: color, size: 18),
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              style: TextStyle(
-                color: color,
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                height: 1.15,
+              const SizedBox(height: 6),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  height: 1.15,
+                ),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              detail,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              style: const TextStyle(
-                color: Color(0xFFC5D7E2),
-                fontSize: 11,
-                height: 1.2,
+              const SizedBox(height: 2),
+              Text(
+                detail,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                style: const TextStyle(
+                  color: Color(0xFFC5D7E2),
+                  fontSize: 11,
+                  height: 1.2,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            _BuyCart(onTap: onTap, color: color),
-          ],
+              const SizedBox(height: 8),
+              _BuyCart(onTap: onTap, color: color),
+            ],
+          ),
         ),
       ),
     );
@@ -1190,10 +1209,7 @@ class _BuyCart extends StatelessWidget {
   final VoidCallback onTap;
   final Color color;
 
-  const _BuyCart({
-    required this.onTap,
-    this.color = const Color(0xFFFF8A93),
-  });
+  const _BuyCart({required this.onTap, this.color = const Color(0xFFFF8A93)});
 
   @override
   Widget build(BuildContext context) {
@@ -1804,6 +1820,47 @@ class _EmeraldShopDialogState extends State<_EmeraldShopDialog> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AttentionPulse extends StatefulWidget {
+  final Widget child;
+  const _AttentionPulse({required this.child});
+
+  @override
+  State<_AttentionPulse> createState() => _AttentionPulseState();
+}
+
+class _AttentionPulseState extends State<_AttentionPulse>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final curved = CurvedAnimation(parent: _pulse, curve: Curves.easeInOut);
+    final scale = Tween<double>(begin: 1, end: 1.035).animate(curved);
+    return AnimatedBuilder(
+      animation: curved,
+      builder: (context, child) {
+        return Transform.scale(scale: scale.value, child: child);
+      },
+      child: widget.child,
     );
   }
 }

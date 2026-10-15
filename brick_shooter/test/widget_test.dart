@@ -70,6 +70,8 @@ void main() {
     expect(find.byKey(const Key('highscore-confetti')), findsNothing);
     expect(find.text('NEW BEST'), findsNothing);
     expect(find.text('Play again'), findsOneWidget);
+    expect(find.text('THIS ROUND'), findsOneWidget);
+    expect(find.textContaining('EMERALDS'), findsNothing);
   });
 
   testWidgets('daily reward lists the three power-ups', (tester) async {

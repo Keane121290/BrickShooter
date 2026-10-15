@@ -37,7 +37,6 @@ import 'components/game_button.dart';
 import 'components/timer_display.dart';
 
 // Tutorial components
-import 'components/tutorial/dashed_line.dart';
 import 'components/tutorial/finger_hint.dart';
 import 'components/tutorial/lane_highlight.dart';
 
@@ -101,10 +100,12 @@ class MyGame extends FlameGame with TapCallbacks {
 
   // ========== Tutorial System ==========
   late double tutorialLineY;
-  DashedLine? _dashLine;
   FingerHint? _finger;
   LaneHighlight? _laneGlow;
   int? _tutorialLane; // lane with gap on the bottom row at hold time
+  final List<PowerOrb> _powerOrbs = [];
+  var _powerOrbY = 0.0;
+  var _tutorialPowerLift = 0.0;
   double _startAnimationTime = 0.0; // Time since game start/restart
   bool _isAnimating = false; // Whether start animations are in progress
 
@@ -270,6 +271,9 @@ class MyGame extends FlameGame with TapCallbacks {
     final orbSize = buttonSize * 0.82 * 1.5;
     // Leave room under each circle for the "5x" count, above the multiplier.
     final orbY = floorY - 118 - orbSize * 0.72;
+    _powerOrbY = orbY;
+    // Tutorial captions and the larger circles need a little extra room.
+    _tutorialPowerLift = orbSize * 0.55 + 20;
     final kinds = PowerUp.values;
     for (var i = 0; i < kinds.length; i++) {
       final kind = kinds[i];
@@ -283,27 +287,27 @@ class MyGame extends FlameGame with TapCallbacks {
         PowerUp.slowDown => 'Slow rows',
         PowerUp.panic => 'Clear rows',
       };
-      add(
-        PowerOrb(
-          kind: kind,
-          color: tint,
-          diameter: orbSize,
-          center: Vector2(w * (i + 0.5) / kinds.length, orbY),
-          count: () => profile.countOf(kind),
-          shown: () =>
-              phase == GamePhase.tutorialDrop ||
-              phase == GamePhase.tutorialHold ||
-              phase == GamePhase.playing ||
-              phase == GamePhase.paused,
-          explained: () =>
-              phase == GamePhase.tutorialDrop ||
-              phase == GamePhase.tutorialHold ||
-              phase == GamePhase.paused,
-          caption: caption,
-          urgency: () => _powerUrgency(kind),
-          onPressed: () => _usePower(kind),
-        ),
+      final orb = PowerOrb(
+        kind: kind,
+        color: tint,
+        diameter: orbSize,
+        center: Vector2(w * (i + 0.5) / kinds.length, orbY),
+        count: () => profile.countOf(kind),
+        shown: () =>
+            phase == GamePhase.tutorialDrop ||
+            phase == GamePhase.tutorialHold ||
+            phase == GamePhase.playing ||
+            phase == GamePhase.paused,
+        explained: () =>
+            phase == GamePhase.tutorialDrop ||
+            phase == GamePhase.tutorialHold ||
+            phase == GamePhase.paused,
+        caption: caption,
+        urgency: () => _powerUrgency(kind),
+        onPressed: () => _usePower(kind),
       );
+      _powerOrbs.add(orb);
+      add(orb);
     }
 
     _laneLocked = List<bool>.filled(GameConfig.lanes, false);
@@ -480,7 +484,7 @@ class MyGame extends FlameGame with TapCallbacks {
     background.setRunning(true);
 
     // Reset animation timer før spawning
-    _startAnimationTime = 0.0;
+    _clearTutorialUi();
     _isAnimating = true;
 
     // Spawn rows above the top with animation
@@ -560,6 +564,12 @@ class MyGame extends FlameGame with TapCallbacks {
       if (_slowLeft < 0) _slowLeft = 0;
     }
     rowController.speedScale = _slowLeft > 0 ? GameConfig.slowDownScale : 1;
+    final tutorial =
+        phase == GamePhase.tutorialDrop || phase == GamePhase.tutorialHold;
+    final orbY = tutorial ? _powerOrbY - _tutorialPowerLift : _powerOrbY;
+    for (final orb in _powerOrbs) {
+      orb.position.y = orbY;
+    }
     super.update(dt);
 
     // Oppdater start animation time kontinuerlig når vi er i tutorialDrop eller playing fase
@@ -577,32 +587,8 @@ class MyGame extends FlameGame with TapCallbacks {
       _timerDisplay!.timeRemaining = _timeRemaining;
     }
     
-    // Handle start animations
-    if (_isAnimating) {
-      // Dashed line and finger hint appear after 1 second and fade in quickly
-      if (_startAnimationTime >= 1.0) {
-        if (_dashLine != null || _finger != null) {
-          // Quick fade-in: from 0 to 1 over 0.2 seconds (starting at 1.0)
-          final fadeStartTime = 1.0;
-          final fadeDuration = 0.2;
-          final fadeProgress = ((_startAnimationTime - fadeStartTime) / fadeDuration).clamp(0.0, 1.0);
-          
-          if (_dashLine != null) {
-            _dashLine!.setOpacity(fadeProgress);
-          }
-          if (_finger != null) {
-            _finger!.setOpacity(fadeProgress);
-          }
-          if (_laneGlow != null) {
-            _laneGlow!.setOpacity(fadeProgress);
-          }
-        }
-        
-        // Stop animating after fade-ins complete
-        if (_startAnimationTime >= 1.0 + 0.2) {
-          _isAnimating = false;
-        }
-      }
+    if (_isAnimating && _startAnimationTime >= 1.2) {
+      _isAnimating = false;
     }
 
     // Keep rows ordered bottom->top to stabilize logic
@@ -633,9 +619,8 @@ class MyGame extends FlameGame with TapCallbacks {
       }
     }
 
-    // Show tutorial hint when animation time reaches 1 second (if we're in tutorialHold and hint not shown yet)
-    if (phase == GamePhase.tutorialHold && _startAnimationTime >= 1.0 && _dashLine == null && _finger == null) {
-      _showTutorialHintForBottomGap();
+    if (phase == GamePhase.tutorialDrop || phase == GamePhase.tutorialHold) {
+      _layoutTutorialMark();
     }
 
     if (phase == GamePhase.playing) {
@@ -789,92 +774,57 @@ class MyGame extends FlameGame with TapCallbacks {
 
   // ========== Tutorial System ==========
 
-  void _showTutorialHintForBottomGap() {
+  void _layoutTutorialMark() {
     final bottom = rowController.getBottomRow();
     if (bottom == null) return;
 
-    int? gapLane;
-    for (int l = 0; l < GameConfig.lanes; l++) {
-      final free =
-          !bottom.filledLanes.contains(l) && !bottom.reservedLanes.contains(l);
-      if (free) {
-        gapLane = l;
-        break;
-      }
-    }
-    _tutorialLane = gapLane ?? 0;
-
-    _dashLine?.removeFromParent();
-    final xCenter = _tutorialLane! * laneWidth + laneWidth / 2;
-    
-    // Keep the hint above the power-up row, which sits over the multiplier.
-    const spacingFromTutorialStop = 30.0;
-    final dashLineTop = minimumBottomY + spacingFromTutorialStop;
+    _tutorialLane ??= _openLane(bottom);
+    final lane = _tutorialLane!;
+    final top = bottom.bottomY + 8;
     final orbSize = brickHeight * 0.82 * 1.5;
-    final orbCenter = floorY - 118 - orbSize * 0.72;
-    final helpTop = orbCenter - (orbSize / 2 + 28) * 1.45;
-    var dashLineBottom = helpTop - 16;
-    if (dashLineBottom < dashLineTop + 48) {
-      dashLineBottom = dashLineTop + 48;
-    }
-    
-    // Position hand in the middle of the dashed line area
-    final hintY = dashLineTop + (dashLineBottom - dashLineTop) * 0.5;
-    
-    _laneGlow?.removeFromParent();
-    _laneGlow = LaneHighlight(
-      x: _tutorialLane! * laneWidth,
-      width: laneWidth,
-      top: GameConfig.boardTop,
-      height: (dashLineBottom - GameConfig.boardTop)
-          .clamp(80, floorY - GameConfig.boardTop)
-          .toDouble(),
-    );
-    if (_startAnimationTime >= 1.0) {
-      final fadeProgress = ((_startAnimationTime - 1.0) / 0.2).clamp(0.0, 1.0);
-      _laneGlow!.setOpacity(fadeProgress);
-    }
-    add(_laneGlow!);
+    final orbCenter = _powerOrbY - _tutorialPowerLift;
+    final aboveOrbs = orbCenter - (orbSize / 2 + 28) * 1.45;
+    final markBottom = aboveOrbs < top + 48 ? top + 48 : aboveOrbs;
+    final x = lane * laneWidth;
 
-    _dashLine = DashedLine(
-      x: xCenter,
-      yTop: dashLineTop,
-      yBottom: dashLineBottom,
-      color: const ui.Color(0xCCFFFFFF), // Much clearer/more opaque
-      dash: 10,
-      gap: 6,
-      lineWidth: 3.0, // Thicker line
-      priority: 990,
-    );
-    // Set initial opacity based on animation time
-    if (_startAnimationTime >= 1.0) {
-      final fadeStartTime = 1.0;
-      final fadeDuration = 0.2;
-      final fadeProgress = ((_startAnimationTime - fadeStartTime) / fadeDuration).clamp(0.0, 1.0);
-      _dashLine!.setOpacity(fadeProgress);
+    if (_laneGlow == null) {
+      _laneGlow = LaneHighlight(
+        x: x,
+        width: laneWidth,
+        top: top,
+        height: markBottom - top,
+      )..setOpacity(1);
+      add(_laneGlow!);
+    } else {
+      _laneGlow!
+        ..position = Vector2(x, top)
+        ..size = Vector2(laneWidth, markBottom - top)
+        ..setOpacity(1);
     }
-    add(_dashLine!);
 
-    _finger?.removeFromParent();
-    _finger = FingerHint(
-      center: Vector2(xCenter, hintY),
-      priority: 991,
-    );
-    // Set initial opacity based on animation time
-    if (_startAnimationTime >= 1.0) {
-      final fadeStartTime = 1.0;
-      final fadeDuration = 0.2;
-      final fadeProgress = ((_startAnimationTime - fadeStartTime) / fadeDuration).clamp(0.0, 1.0);
-      _finger!.setOpacity(fadeProgress);
+    final fingerY = top + 42;
+    final fingerCenter = Vector2(x + laneWidth / 2, fingerY);
+    if (_finger == null) {
+      _finger = FingerHint(center: fingerCenter, priority: 991)..setOpacity(1);
+      add(_finger!);
+    } else {
+      _finger!.basePosition.setFrom(fingerCenter);
+      _finger!.setOpacity(1);
     }
-    add(_finger!);
+  }
+
+  int _openLane(FallingRow bottom) {
+    for (int lane = 0; lane < GameConfig.lanes; lane++) {
+      final free = !bottom.filledLanes.contains(lane) &&
+          !bottom.reservedLanes.contains(lane);
+      if (free) return lane;
+    }
+    return 0;
   }
 
   void _clearTutorialUi() {
-    _dashLine?.removeFromParent();
     _finger?.removeFromParent();
     _laneGlow?.removeFromParent();
-    _dashLine = null;
     _finger = null;
     _laneGlow = null;
     _tutorialLane = null;
