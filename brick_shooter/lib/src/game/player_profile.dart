@@ -10,7 +10,6 @@ class PlayerProfile extends ChangeNotifier {
   int panic = GameConfig.startingPowerUps;
   int emeralds = 0;
   int emeraldsThisRound = 0;
-  final Set<PowerUp> armed = {};
   List<int> topScores = [];
   String? dailyRewardDay;
   bool pendingDailyNotice = false;
@@ -97,38 +96,6 @@ class PlayerProfile extends ChangeNotifier {
     emeraldsThisRound += 1;
     notifyListeners();
     _save();
-  }
-
-  bool isArmed(PowerUp kind) => armed.contains(kind);
-
-  /// Marks one owned charge to be spent when the next round starts.
-  void toggleArm(PowerUp kind) {
-    if (armed.contains(kind)) {
-      armed.remove(kind);
-    } else if (countOf(kind) > 0) {
-      armed.add(kind);
-    }
-    notifyListeners();
-  }
-
-  /// Spends one charge of each armed power-up and clears the selection.
-  List<PowerUp> takeArmed() {
-    final spent = <PowerUp>[];
-    for (final kind in PowerUp.values) {
-      if (!armed.remove(kind) || countOf(kind) <= 0) continue;
-      switch (kind) {
-        case PowerUp.extraTime:
-          extraTime -= 1;
-        case PowerUp.slowDown:
-          slowDown -= 1;
-        case PowerUp.panic:
-          panic -= 1;
-      }
-      spent.add(kind);
-    }
-    notifyListeners();
-    _save();
-    return spent;
   }
 
   bool tryUse(PowerUp kind) {
