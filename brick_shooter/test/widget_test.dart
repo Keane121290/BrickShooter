@@ -19,6 +19,15 @@ void main() {
     await tester.pump();
 
     expect(find.text('Start'), findsOneWidget);
+    final startBox = tester.widget<SizedBox>(
+      find
+          .descendant(
+            of: find.byKey(const Key('menu-start')),
+            matching: find.byType(SizedBox),
+          )
+          .first,
+    );
+    expect(startBox.height, 68);
     expect(_pulseScale(tester, const Key('menu-start')), closeTo(1, 0.001));
 
     await tester.pump(const Duration(milliseconds: 1400));
@@ -163,6 +172,44 @@ void main() {
     expect(profile.extraTime, 3);
     expect(profile.emeralds, 5);
     expect(find.text('Buy for 5 emeralds'), findsNothing);
+  });
+
+  testWidgets('arming keeps the charge until the round spends it', (
+    tester,
+  ) async {
+    final profile = PlayerProfile()..extraTime = 4;
+    await tester.pumpWidget(
+      MaterialApp(home: MenuOverlay(game: _game(profile))),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('arm-extraTime')));
+    await tester.pump();
+
+    expect(find.text('Armed'), findsOneWidget);
+    expect(find.text('Buy for 5 emeralds'), findsNothing);
+    expect(profile.extraTime, 4);
+    expect(profile.isArmed(PowerUp.extraTime), isTrue);
+
+    await tester.tap(find.byKey(const Key('arm-extraTime')));
+    await tester.pump();
+    expect(profile.isArmed(PowerUp.extraTime), isFalse);
+  });
+
+  test('takeArmed spends one charge of each armed power-up', () {
+    final profile = PlayerProfile()
+      ..extraTime = 3
+      ..slowDown = 1
+      ..panic = 0;
+    profile.armed.addAll({PowerUp.extraTime, PowerUp.slowDown, PowerUp.panic});
+
+    final spent = profile.takeArmed();
+
+    expect(spent, [PowerUp.extraTime, PowerUp.slowDown]);
+    expect(profile.extraTime, 2);
+    expect(profile.slowDown, 0);
+    expect(profile.panic, 0);
+    expect(profile.armed, isEmpty);
   });
 }
 

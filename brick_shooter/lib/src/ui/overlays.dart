@@ -104,54 +104,89 @@ class _MenuOverlayState extends State<MenuOverlay> {
             ),
             SafeArea(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-                child: Column(
-                  children: [
-                    const _BrickLogo(),
-                    const SizedBox(height: 16),
-                    _Podium(scores: profile.topScores),
-                    const SizedBox(height: 12),
-                    _EmeraldChip(count: profile.emeralds, onTap: _openEmeralds),
-                    const SizedBox(height: 14),
-                    Expanded(
-                      child: ListView(
-                        children: [
-                          _PowerCard(
-                            title: 'Extra time',
-                            detail: '+15 seconds',
-                            count: profile.extraTime,
-                            color: const Color(0xFF5FD0FF),
-                            icon: Icons.add,
-                            onTap: () => _openPower(PowerUp.extraTime),
-                          ),
-                          const SizedBox(height: 10),
-                          _PowerCard(
-                            title: 'Slow-down',
-                            detail: 'Slower rows for 5 seconds',
-                            count: profile.slowDown,
-                            color: const Color(0xFFB388FF),
-                            icon: Icons.speed,
-                            onTap: () => _openPower(PowerUp.slowDown),
-                          ),
-                          const SizedBox(height: 10),
-                          _PowerCard(
-                            title: 'Panic',
-                            detail: 'Clears every visible row',
-                            count: profile.panic,
-                            color: const Color(0xFFFF6EC7),
-                            icon: Icons.bolt,
-                            onTap: () => _openPower(PowerUp.panic),
-                          ),
-                        ],
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            const _BrickLogo(),
+                            _Podium(scores: profile.topScores),
+                            _EmeraldChip(
+                              count: profile.emeralds,
+                              onTap: _openEmeralds,
+                            ),
+                            FractionallySizedBox(
+                              widthFactor: 0.7,
+                              child: Column(
+                                children: [
+                                  _PowerCard(
+                                    title: 'Extra time',
+                                    detail: '+15 seconds',
+                                    count: profile.extraTime,
+                                    color: const Color(0xFF5FD0FF),
+                                    icon: Icons.add,
+                                    armed: profile.isArmed(PowerUp.extraTime),
+                                    armKey: const Key('arm-extraTime'),
+                                    onArm: () =>
+                                        profile.toggleArm(PowerUp.extraTime),
+                                    onTap: () => _openPower(PowerUp.extraTime),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _PowerCard(
+                                    title: 'Slow-down',
+                                    detail: 'Slower rows for 5 seconds',
+                                    count: profile.slowDown,
+                                    color: const Color(0xFFB388FF),
+                                    icon: Icons.speed,
+                                    armed: profile.isArmed(PowerUp.slowDown),
+                                    armKey: const Key('arm-slowDown'),
+                                    onArm: () =>
+                                        profile.toggleArm(PowerUp.slowDown),
+                                    onTap: () => _openPower(PowerUp.slowDown),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _PowerCard(
+                                    title: 'Panic',
+                                    detail: 'Clears every visible row',
+                                    count: profile.panic,
+                                    color: const Color(0xFFFF6EC7),
+                                    icon: Icons.bolt,
+                                    armed: profile.isArmed(PowerUp.panic),
+                                    armKey: const Key('arm-panic'),
+                                    onArm: () =>
+                                        profile.toggleArm(PowerUp.panic),
+                                    onTap: () => _openPower(PowerUp.panic),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  const Text(
+                                    'Arm a power-up to use it when the round starts.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: Color(0xFF9BB4C2),
+                                      fontSize: 12,
+                                      height: 1.35,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            _PulseCta(
+                              key: const Key('menu-start'),
+                              label: 'Start',
+                              height: 68,
+                              onPressed: widget.game.startGame,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    _PulseCta(
-                      key: const Key('menu-start'),
-                      label: 'Start',
-                      onPressed: widget.game.startGame,
-                    ),
-                  ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -191,23 +226,30 @@ class _DailyRewardDialog extends StatelessWidget {
             style: TextStyle(color: Color(0xFFC5D7E2), height: 1.35),
           ),
           const SizedBox(height: 16),
-          const _RewardLine(
-            color: Color(0xFF5FD0FF),
-            icon: Icons.add,
-            title: 'Extra time',
-            detail: '+15 seconds',
-          ),
-          const _RewardLine(
-            color: Color(0xFFB388FF),
-            icon: Icons.speed,
-            title: 'Slow-down',
-            detail: 'Slower rows for 5 seconds',
-          ),
-          const _RewardLine(
-            color: Color(0xFFFF6EC7),
-            icon: Icons.bolt,
-            title: 'Panic',
-            detail: 'Clears every visible row',
+          const FractionallySizedBox(
+            widthFactor: 0.7,
+            child: Column(
+              children: [
+                _RewardLine(
+                  color: Color(0xFF5FD0FF),
+                  icon: Icons.add,
+                  title: 'Extra time',
+                  detail: '+15 seconds',
+                ),
+                _RewardLine(
+                  color: Color(0xFFB388FF),
+                  icon: Icons.speed,
+                  title: 'Slow-down',
+                  detail: 'Slower rows for 5 seconds',
+                ),
+                _RewardLine(
+                  color: Color(0xFFFF6EC7),
+                  icon: Icons.bolt,
+                  title: 'Panic',
+                  detail: 'Clears every visible row',
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 10),
           SizedBox(
@@ -752,6 +794,9 @@ class _PowerCard extends StatelessWidget {
   final int count;
   final Color color;
   final IconData icon;
+  final bool armed;
+  final Key armKey;
+  final VoidCallback onArm;
   final VoidCallback onTap;
 
   const _PowerCard({
@@ -760,76 +805,216 @@ class _PowerCard extends StatelessWidget {
     required this.count,
     required this.color,
     required this.icon,
+    required this.armed,
+    required this.armKey,
+    required this.onArm,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final canArm = count > 0;
     return Material(
       color: const Color(0xE616242E),
       borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: color.withValues(alpha: 0.85)),
-            gradient: LinearGradient(
-              colors: [color.withValues(alpha: 0.22), const Color(0x00101820)],
-            ),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: armed ? color : color.withValues(alpha: 0.85),
+            width: armed ? 2 : 1,
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: color.withValues(alpha: 0.25),
-                  border: Border.all(color: color),
-                ),
-                child: Icon(icon, color: color, size: 22),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        color: color,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      detail,
-                      style: const TextStyle(
-                        color: Color(0xFFC5D7E2),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                '$count',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
+          gradient: LinearGradient(
+            colors: [
+              color.withValues(alpha: armed ? 0.34 : 0.22),
+              const Color(0x00101820),
             ],
+          ),
+        ),
+        child: Column(
+          children: [
+            InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: color.withValues(alpha: 0.25),
+                      border: Border.all(color: color),
+                    ),
+                    child: Icon(icon, color: color, size: 18),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            color: color,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Text(
+                          detail,
+                          maxLines: 2,
+                          style: const TextStyle(
+                            color: Color(0xFFC5D7E2),
+                            fontSize: 11,
+                            height: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  _StashCount(
+                    count: '$count',
+                    color: color,
+                    width: 52,
+                    height: 60,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                key: armKey,
+                onPressed: canArm ? onArm : null,
+                style: TextButton.styleFrom(
+                  foregroundColor: armed ? const Color(0xFF102016) : color,
+                  disabledForegroundColor: const Color(0xFF9BB4C2),
+                  backgroundColor: armed
+                      ? color
+                      : color.withValues(alpha: 0.12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 4,
+                  ),
+                  minimumSize: const Size(76, 32),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: const StadiumBorder(),
+                ),
+                child: Text(
+                  armed ? 'Armed' : 'Arm',
+                  style: TextStyle(
+                    // Explicit so the label does not fade in over the fill.
+                    color: !canArm
+                        ? const Color(0xFF9BB4C2)
+                        : armed
+                        ? const Color(0xFF102016)
+                        : color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StashCount extends StatelessWidget {
+  final String count;
+  final Color color;
+  final double width;
+  final double height;
+
+  const _StashCount({
+    required this.count,
+    required this.color,
+    this.width = 46,
+    this.height = 52,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: height,
+      child: CustomPaint(
+        painter: _SackPainter(color: color),
+        child: Align(
+          alignment: const Alignment(0, 0.42),
+          child: Text(
+            count,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: width < 48 ? 12 : 16,
+              fontWeight: FontWeight.w800,
+              height: 1,
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+class _SackPainter extends CustomPainter {
+  final Color color;
+  const _SackPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final cloth = Paint()..color = color;
+    final edge = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = (w * 0.045).clamp(1.4, 2.2)
+      ..strokeJoin = StrokeJoin.round
+      ..color = const Color(0xF5FFFFFF);
+    final rope = Paint()
+      ..color = const Color(0xFFF7FBFF)
+      ..strokeWidth = (h * 0.055).clamp(2.0, 3.2)
+      ..strokeCap = StrokeCap.round;
+    // Tied cloth sack: two soft puffs above the drawstring, round belly below.
+    final sack = Path()
+      ..moveTo(w * 0.24, h * 0.32)
+      ..quadraticBezierTo(w * 0.08, h * 0.18, w * 0.26, h * 0.08)
+      ..quadraticBezierTo(w * 0.40, h * 0.04, w * 0.46, h * 0.18)
+      ..lineTo(w * 0.50, h * 0.26)
+      ..lineTo(w * 0.54, h * 0.18)
+      ..quadraticBezierTo(w * 0.60, h * 0.04, w * 0.74, h * 0.08)
+      ..quadraticBezierTo(w * 0.92, h * 0.18, w * 0.76, h * 0.32)
+      ..cubicTo(w * 0.98, h * 0.38, w * 0.98, h * 0.72, w * 0.82, h * 0.88)
+      ..cubicTo(w * 0.70, h * 0.99, w * 0.30, h * 0.99, w * 0.18, h * 0.88)
+      ..cubicTo(w * 0.02, h * 0.72, w * 0.02, h * 0.38, w * 0.24, h * 0.32)
+      ..close();
+    canvas.drawPath(sack, cloth);
+    canvas.drawPath(sack, edge);
+    canvas.drawLine(
+      Offset(w * 0.22, h * 0.32),
+      Offset(w * 0.78, h * 0.32),
+      rope,
+    );
+    canvas.drawCircle(Offset(w * 0.50, h * 0.32), w * 0.07, cloth);
+    canvas.drawCircle(
+      Offset(w * 0.50, h * 0.32),
+      w * 0.07,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = (w * 0.035).clamp(1.2, 1.8)
+        ..color = const Color(0xFFF7FBFF),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _SackPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class _HomeGlow extends StatelessWidget {
@@ -1297,12 +1482,14 @@ class _PulseCta extends StatefulWidget {
   final String label;
   final VoidCallback onPressed;
   final double fontSize;
+  final double height;
 
   const _PulseCta({
     super.key,
     required this.label,
     required this.onPressed,
     this.fontSize = 20,
+    this.height = 52,
   });
 
   @override
@@ -1355,7 +1542,7 @@ class _PulseCtaState extends State<_PulseCta>
       },
       child: SizedBox(
         width: double.infinity,
-        height: 52,
+        height: widget.height,
         child: ElevatedButton(
           onPressed: widget.onPressed,
           style: ElevatedButton.styleFrom(
@@ -1598,29 +1785,27 @@ class _RewardLine extends StatelessWidget {
                   children: [
                     Text(
                       title,
+                      maxLines: 2,
                       style: TextStyle(
                         color: color,
                         fontWeight: FontWeight.w800,
+                        fontSize: 13,
                       ),
                     ),
                     Text(
                       detail,
+                      maxLines: 2,
                       style: const TextStyle(
                         color: Color(0xFFC5D7E2),
-                        fontSize: 12,
+                        fontSize: 11,
+                        height: 1.2,
                       ),
                     ),
                   ],
                 ),
               ),
-              const Text(
-                '+1',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
+              const SizedBox(width: 6),
+              _StashCount(count: '+1', color: color, width: 46, height: 54),
             ],
           ),
         ),

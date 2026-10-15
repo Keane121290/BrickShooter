@@ -88,6 +88,7 @@ class MyGame extends FlameGame with TapCallbacks {
   TimerDisplay? _timerDisplay;
   double _timeRemaining = GameConfig.roundSeconds;
   double _slowLeft = 0;
+  var _panicWhenPlayStarts = false;
 
   GameButton? _pauseButton;
   GameButton? _restartButton;
@@ -342,6 +343,7 @@ class MyGame extends FlameGame with TapCallbacks {
         _enqueueFire(lane);
         _clearTutorialUi();
         _setPhase(GamePhase.playing);
+        _fireArmedPanic();
       }
       return;
     }
@@ -444,6 +446,7 @@ class MyGame extends FlameGame with TapCallbacks {
   }
 
   void startGame() {
+    _refundUnusedPanic();
     // reset score + UI
     score.reset();
     profile.beginRound();
@@ -495,7 +498,8 @@ class MyGame extends FlameGame with TapCallbacks {
     // enter tutorialDrop phase
     _setPhase(GamePhase.tutorialDrop);
     bulletController.setPaused(false);
-    
+    _applyArmedPowers();
+
     // Set pause button icon to pause (not play)
     if (_pauseButton != null) {
       _pauseButton!.buttonType = ButtonType.pause;
@@ -503,6 +507,7 @@ class MyGame extends FlameGame with TapCallbacks {
   }
 
   void backToMenu() {
+    _refundUnusedPanic();
     overlays.add(MenuOverlay.id);
     overlays.remove(GameOverOverlay.id);
     background.setRunning(false);
@@ -709,6 +714,38 @@ class MyGame extends FlameGame with TapCallbacks {
         final bottom = rowController.getBottomRow();
         if (bottom == null) return 0;
         return bottom.bottomY > size.y * 0.75 ? 1 : 0;
+    }
+  }
+
+  void _applyArmedPowers() {
+    for (final kind in profile.takeArmed()) {
+      switch (kind) {
+        case PowerUp.extraTime:
+          _timeRemaining += GameConfig.extraTimeSeconds;
+          if (_timerDisplay != null) {
+            _timerDisplay!.timeRemaining = _timeRemaining;
+          }
+        case PowerUp.slowDown:
+          _slowLeft = GameConfig.slowDownSeconds;
+        case PowerUp.panic:
+          _panicWhenPlayStarts = true;
+      }
+    }
+  }
+
+  void _refundUnusedPanic() {
+    if (!_panicWhenPlayStarts) return;
+    _panicWhenPlayStarts = false;
+    profile.grant(PowerUp.panic);
+  }
+
+  void _fireArmedPanic() {
+    if (!_panicWhenPlayStarts) return;
+    _panicWhenPlayStarts = false;
+    final currentMultiplier = multiplier.getCurrentMultiplier();
+    final cleared = rowController.clearVisibleRows(onExplode: _onRowRemoved);
+    if (cleared > 0) {
+      _addScore(currentMultiplier * cleared);
     }
   }
 
