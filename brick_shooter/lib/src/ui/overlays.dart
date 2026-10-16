@@ -1,9 +1,12 @@
 // lib/src/ui/overlays.dart
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../game/my_game.dart';
 import '../game/player_profile.dart';
+import '../game/game_sounds.dart';
 import '../purchases/emerald_shop.dart';
 import 'power_mark.dart';
 
@@ -50,6 +53,7 @@ class _MenuOverlayState extends State<MenuOverlay> {
       }
       await showDialog<void>(
         context: dialogContext,
+        barrierColor: const Color(0xAD000000),
         builder: (context) => const _DailyRewardDialog(),
       );
       _showingDaily = false;
@@ -105,51 +109,116 @@ class _MenuOverlayState extends State<MenuOverlay> {
             ),
             SafeArea(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                padding: const EdgeInsets.fromLTRB(20, 12, 0, 0),
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    // Start sits a little lower so the menu has more air.
-                    final bottomGap = constraints.maxHeight * 0.14;
+                    final bottomGap = math.max(16.0, constraints.maxHeight * 0.04);
                     return Column(
                       children: [
                         Expanded(
-                          child: SingleChildScrollView(
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                minHeight: math.max(
-                                  0,
-                                  constraints.maxHeight - 68 - bottomGap,
-                                ),
-                              ),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.center,
+                            child: SizedBox(
+                              width: constraints.maxWidth,
                               child: Column(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceEvenly,
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const _BrickLogo(),
-                                  _AttentionPulse(
-                                    child: _EmeraldChip(
-                                      key: const Key('menu-emeralds'),
-                                      count: profile.emeralds,
-                                      showLabel: false,
-                                      showCart: true,
-                                      onTap: _openEmeralds,
-                                    ),
+                                  const Padding(
+                                    padding: EdgeInsets.only(right: 20),
+                                    child: _BrickLogo(),
                                   ),
-                                  _Podium(scores: profile.topScores),
-                                  _PowerShelf(
-                                    profile: profile,
-                                    onOpen: _openPower,
+                                  const SizedBox(height: 18),
+                                  Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.only(right: 20),
+                                        child: _AttentionPulse(
+                                          child: _EmeraldChip(
+                                            key: const Key('menu-emeralds'),
+                                            count: profile.emeralds,
+                                            showLabel: false,
+                                            showCart: true,
+                                            onTap: _openEmeralds,
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        right: 4,
+                                        top: 0,
+                                        bottom: 0,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            _IconToggle(
+                                              buttonKey: const Key(
+                                                'menu-vibration',
+                                              ),
+                                              enabled: profile.vibrationEnabled,
+                                              icon: Icons.vibration,
+                                              offIcon: Icons.mobile_off,
+                                              onPressed: () {
+                                                profile.toggleVibration();
+                                                if (profile.vibrationEnabled) {
+                                                  HapticFeedback.mediumImpact();
+                                                }
+                                              },
+                                            ),
+                                            const SizedBox(width: 8),
+                                            _IconToggle(
+                                              buttonKey: const Key('menu-sound'),
+                                              enabled: profile.soundEnabled,
+                                              icon: Icons.volume_up_rounded,
+                                              offIcon: Icons.volume_off_rounded,
+                                              onPressed: () {
+                                                profile.toggleSound();
+                                                if (profile.soundEnabled) {
+                                                  widget.game.sounds.play(
+                                                    GameSounds.clear,
+                                                    volume: 0.55,
+                                                  );
+                                                }
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 18),
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 20),
+                                    child: _Podium(scores: profile.topScores),
+                                  ),
+                                  const SizedBox(height: 18),
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 20),
+                                    child: _PowerShelf(
+                                      profile: profile,
+                                      onOpen: _openPower,
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
                           ),
                         ),
-                        _PulseCta(
-                          key: const Key('menu-start'),
-                          label: 'Start',
-                          height: 68,
-                          onPressed: widget.game.startGame,
+                        Padding(
+                          padding: const EdgeInsets.only(right: 20),
+                          child: Align(
+                            child: SizedBox(
+                              width: MediaQuery.sizeOf(context).width * 0.5,
+                              child: _PulseCta(
+                                key: const Key('menu-start'),
+                                label: 'Start',
+                                height: 68,
+                                pulse: const Duration(milliseconds: 900),
+                                borderColor: const Color(0xFF14532D),
+                                onPressed: widget.game.startGame,
+                              ),
+                            ),
+                          ),
                         ),
                         SizedBox(height: bottomGap),
                       ],
@@ -159,6 +228,46 @@ class _MenuOverlayState extends State<MenuOverlay> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _IconToggle extends StatelessWidget {
+  final bool enabled;
+  final IconData icon;
+  final IconData offIcon;
+  final Key buttonKey;
+  final VoidCallback onPressed;
+
+  const _IconToggle({
+    required this.buttonKey,
+    required this.enabled,
+    required this.icon,
+    required this.offIcon,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = enabled ? const Color(0xFF3DDC97) : const Color(0xFF6A7C88);
+    return Material(
+      color: Colors.transparent,
+      shape: const CircleBorder(),
+      child: InkWell(
+        key: buttonKey,
+        onTap: onPressed,
+        customBorder: const CircleBorder(),
+        child: Ink(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color.withValues(alpha: 0.16),
+            border: Border.all(color: color, width: 1.6),
+          ),
+          child: Icon(enabled ? icon : offIcon, color: color, size: 22),
         ),
       ),
     );
@@ -177,8 +286,6 @@ class _DailyRewardDialog extends StatelessWidget {
         children: [
           const _BobbingBricks(),
           const SizedBox(height: 14),
-          const _Pill(label: 'TODAY', color: Color(0xFFFFD56A)),
-          const SizedBox(height: 10),
           const Text(
             'Daily reward',
             style: TextStyle(
@@ -194,30 +301,36 @@ class _DailyRewardDialog extends StatelessWidget {
             style: TextStyle(color: Color(0xFFC5D7E2), height: 1.35),
           ),
           const SizedBox(height: 16),
-          const FractionallySizedBox(
-            widthFactor: 0.7,
-            child: Column(
-              children: [
-                _RewardLine(
-                  color: Color(0xFF5FD0FF),
-                  kind: PowerUp.extraTime,
+          const Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _DailyPower(
                   title: 'Extra time',
                   detail: '+15 seconds',
+                  color: Color(0xFF5FD0FF),
+                  kind: PowerUp.extraTime,
                 ),
-                _RewardLine(
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: _DailyPower(
+                  title: 'Slow-down',
+                  detail: '15% slower',
                   color: Color(0xFFB388FF),
                   kind: PowerUp.slowDown,
-                  title: 'Slow-down',
-                  detail: 'Slower rows for 5 seconds',
                 ),
-                _RewardLine(
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: _DailyPower(
+                  title: 'Panic',
+                  detail: 'Clears rows',
                   color: Color(0xFFFF6EC7),
                   kind: PowerUp.panic,
-                  title: 'Panic',
-                  detail: 'Clears every visible row',
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
           const SizedBox(height: 10),
           SizedBox(
@@ -245,6 +358,90 @@ class _DailyRewardDialog extends StatelessWidget {
   }
 }
 
+class _DailyPower extends StatelessWidget {
+  final String title;
+  final String detail;
+  final Color color;
+  final PowerUp kind;
+
+  const _DailyPower({
+    required this.title,
+    required this.detail,
+    required this.color,
+    required this.kind,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xE616242E),
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(6, 10, 6, 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: color.withValues(alpha: 0.9)),
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [color.withValues(alpha: 0.28), const Color(0x00101820)],
+          ),
+        ),
+        child: Column(
+          children: [
+            Text(
+              '+1',
+              style: TextStyle(
+                color: color,
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                height: 1,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: color.withValues(alpha: 0.22),
+                border: Border.all(color: color),
+              ),
+              child: Center(
+                child: _PowerMark(kind: kind, color: color, size: 18),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              style: TextStyle(
+                color: color,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                height: 1.15,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              detail,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              style: const TextStyle(
+                color: Color(0xFFC5D7E2),
+                fontSize: 11,
+                height: 1.2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class PauseOverlay extends StatelessWidget {
   static const id = 'pause';
   final MyGame game;
@@ -252,19 +449,28 @@ class PauseOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final orbSize = game.brickHeight * 0.82 * 1.5;
+    final orbCenter = game.floorY - 118 - orbSize * 0.72;
+    final orbTop = orbCenter - (orbSize / 2 + 36) * 1.45;
+    final screenHeight = game.size.y > 0
+        ? game.size.y
+        : MediaQuery.sizeOf(context).height;
+    final openBottom = (screenHeight - orbTop + 8)
+        .clamp(280.0, screenHeight * 0.62)
+        .toDouble();
     return Material(
       type: MaterialType.transparency,
       child: Stack(
         children: [
-          const Positioned(
+          Positioned(
             left: 0,
             right: 0,
             top: 0,
-            bottom: 250,
-            child: ColoredBox(color: Color(0xC0101820)),
+            bottom: openBottom,
+            child: const ColoredBox(color: Color(0xC0101820)),
           ),
           Align(
-            alignment: const Alignment(0, -0.25),
+            alignment: const Alignment(0, -0.55),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 28),
               child: ConstrainedBox(
@@ -399,6 +605,8 @@ class _GameOverOverlayState extends State<GameOverOverlay>
   late final AnimationController _entrance;
   late final Animation<double> _fade;
   late final Animation<Offset> _slide;
+  var _emeraldBoostBusy = false;
+  var _emeraldBoostSpent = false;
 
   @override
   void initState() {
@@ -424,9 +632,28 @@ class _GameOverOverlayState extends State<GameOverOverlay>
     super.dispose();
   }
 
+  Future<void> _boostEmeralds() async {
+    if (_emeraldBoostSpent || _emeraldBoostBusy) return;
+    if (widget.game.profile.emeraldsThisRound <= 0) return;
+    setState(() => _emeraldBoostBusy = true);
+    final earned = await widget.game.rewardedAds.show(
+      onShown: () {
+        _emeraldBoostSpent = true;
+        if (mounted) setState(() {});
+      },
+    );
+    if (!mounted) return;
+    if (earned) widget.game.profile.multiplyRoundEmeralds(6);
+    setState(() => _emeraldBoostBusy = false);
+  }
+
   @override
   Widget build(BuildContext context) {
     final game = widget.game;
+    final canBoost =
+        !_emeraldBoostSpent &&
+        !_emeraldBoostBusy &&
+        game.profile.emeraldsThisRound > 0;
 
     return Material(
       type: MaterialType.transparency,
@@ -447,6 +674,8 @@ class _GameOverOverlayState extends State<GameOverOverlay>
                       : (game.score.newBest ? 1 : 0),
                   multiplier: game.multiplier.getCurrentMultiplier(),
                   emeralds: game.profile.emeraldsThisRound,
+                  emeraldBoostEnabled: canBoost,
+                  onEmeraldBoost: _boostEmeralds,
                   onPlayAgain: game.startGame,
                   onMenu: game.backToMenu,
                 ),
@@ -477,6 +706,8 @@ class _GameOverCard extends StatelessWidget {
   final int place;
   final int multiplier;
   final int emeralds;
+  final bool emeraldBoostEnabled;
+  final VoidCallback onEmeraldBoost;
   final VoidCallback onPlayAgain;
   final VoidCallback onMenu;
 
@@ -487,6 +718,8 @@ class _GameOverCard extends StatelessWidget {
     required this.place,
     required this.multiplier,
     required this.emeralds,
+    required this.emeraldBoostEnabled,
+    required this.onEmeraldBoost,
     required this.onPlayAgain,
     required this.onMenu,
   });
@@ -572,10 +805,27 @@ class _GameOverCard extends StatelessWidget {
                   const _NewBestChip(),
                 ],
                 const SizedBox(height: 16),
-                _EmeraldChip(
-                  count: emeralds,
-                  label: 'THIS ROUND',
-                  labelBelow: true,
+                Stack(
+                  alignment: Alignment.center,
+                  clipBehavior: Clip.none,
+                  children: [
+                    _EmeraldChip(
+                      count: emeralds,
+                      label: 'THIS ROUND',
+                      labelBelow: true,
+                    ),
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      bottom: 0,
+                      child: Center(
+                        child: _EmeraldBoostButton(
+                          enabled: emeraldBoostEnabled,
+                          onPressed: onEmeraldBoost,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 Row(
@@ -889,13 +1139,36 @@ class _TrophyPainter extends CustomPainter {
       ..cubicTo(w * 0.72, h * 0.38, w * 0.62, h * 0.50, cx, h * 0.50)
       ..cubicTo(w * 0.38, h * 0.50, w * 0.28, h * 0.38, w * 0.29, h * 0.20)
       ..close();
-    canvas.drawPath(bowl, Paint()..color = cup);
+    canvas.drawPath(
+      bowl,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color.lerp(Colors.white, color, 0.28)!,
+            cup,
+            Color.lerp(const Color(0xFF3A2A14), color, 0.35)!,
+          ],
+        ).createShader(Rect.fromLTWH(0, 0, w, h)),
+    );
+    canvas.save();
+    canvas.clipPath(bowl);
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(cx - w * 0.1, h * 0.14),
+        width: w * 0.22,
+        height: h * 0.1,
+      ),
+      Paint()..color = const Color(0xAAFFFFFF),
+    );
+    canvas.restore();
     canvas.drawPath(
       bowl,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = w * 0.015
-        ..color = handleColor.withValues(alpha: 0.35),
+        ..strokeWidth = w * 0.02
+        ..color = Color.lerp(Colors.white, handleColor, 0.35)!,
     );
 
     final bead = Paint()..color = cup;
@@ -1023,6 +1296,46 @@ class _EmeraldChip extends StatelessWidget {
   }
 }
 
+class _EmeraldBoostButton extends StatelessWidget {
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  const _EmeraldBoostButton({required this.enabled, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = enabled ? const Color(0xFFFF2D3A) : const Color(0xFF3A4A54);
+    return TextButton(
+      key: const Key('gameover-emerald-x6'),
+      onPressed: enabled ? onPressed : null,
+      style: TextButton.styleFrom(
+        foregroundColor: Colors.white,
+        disabledForegroundColor: const Color(0xFF6A7C88),
+        disabledBackgroundColor: const Color(0xFF243038),
+        backgroundColor: const Color(0xFFB42332),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(999),
+          side: BorderSide(color: color, width: 1.4),
+        ),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.smart_display_outlined, size: 18),
+          SizedBox(width: 4),
+          Text(
+            'x6',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _Gem extends StatelessWidget {
   final double size;
   const _Gem({this.size = 12});
@@ -1052,46 +1365,60 @@ class _PowerShelf extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
       children: [
-        Expanded(
-          child: _AttentionPulse(
-            child: _PowerChip(
-              title: 'Extra time',
-              detail: '+15 seconds',
-              count: profile.extraTime,
-              color: const Color(0xFF5FD0FF),
-              kind: PowerUp.extraTime,
-              onTap: () => onOpen(PowerUp.extraTime),
-            ),
+        const Text(
+          'Power-ups',
+          style: TextStyle(
+            color: Color(0xFFC5D7E2),
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.4,
           ),
         ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _AttentionPulse(
-            child: _PowerChip(
-              title: 'Slow-down',
-              detail: 'Slower 5s',
-              count: profile.slowDown,
-              color: const Color(0xFFB388FF),
-              kind: PowerUp.slowDown,
-              onTap: () => onOpen(PowerUp.slowDown),
+        const SizedBox(height: 8),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _AttentionPulse(
+                child: _PowerChip(
+                  title: 'Extra time',
+                  detail: '+15 seconds',
+                  count: profile.extraTime,
+                  color: const Color(0xFF5FD0FF),
+                  kind: PowerUp.extraTime,
+                  onTap: () => onOpen(PowerUp.extraTime),
+                ),
+              ),
             ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _AttentionPulse(
-            child: _PowerChip(
-              title: 'Panic',
-              detail: 'Clears rows',
-              count: profile.panic,
-              color: const Color(0xFFFF6EC7),
-              kind: PowerUp.panic,
-              onTap: () => onOpen(PowerUp.panic),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _AttentionPulse(
+                child: _PowerChip(
+                  title: 'Slow-down',
+                  detail: '15% slower',
+                  count: profile.slowDown,
+                  color: const Color(0xFFB388FF),
+                  kind: PowerUp.slowDown,
+                  onTap: () => onOpen(PowerUp.slowDown),
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _AttentionPulse(
+                child: _PowerChip(
+                  title: 'Panic',
+                  detail: 'Clears rows',
+                  count: profile.panic,
+                  color: const Color(0xFFFF6EC7),
+                  kind: PowerUp.panic,
+                  onTap: () => onOpen(PowerUp.panic),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -1292,108 +1619,6 @@ class _PlaceTrophy extends StatelessWidget {
   }
 }
 
-class _StashCount extends StatelessWidget {
-  final String count;
-  final Color color;
-  final double width;
-  final double height;
-
-  const _StashCount({
-    required this.count,
-    required this.color,
-    this.width = 46,
-    this.height = 52,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      height: height,
-      child: CustomPaint(
-        painter: _ChestPainter(color: color),
-        child: Align(
-          alignment: const Alignment(0, 0.82),
-          child: Text(
-            count,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: width < 48 ? 12 : 15,
-              fontWeight: FontWeight.w800,
-              height: 1,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ChestPainter extends CustomPainter {
-  final Color color;
-  const _ChestPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final wood = Paint()..color = color;
-    final edge = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = (w * 0.04).clamp(1.2, 2.0)
-      ..strokeJoin = StrokeJoin.round
-      ..color = const Color(0xF5FFFFFF);
-    final metal = Paint()..color = const Color(0xFFF7FBFF);
-    final body = RRect.fromRectAndCorners(
-      Rect.fromLTWH(w * 0.06, h * 0.40, w * 0.88, h * 0.54),
-      bottomLeft: Radius.circular(w * 0.12),
-      bottomRight: Radius.circular(w * 0.12),
-    );
-    final lid = Path()
-      ..moveTo(w * 0.08, h * 0.46)
-      ..lineTo(w * 0.08, h * 0.30)
-      ..quadraticBezierTo(w * 0.08, h * 0.06, w * 0.50, h * 0.06)
-      ..quadraticBezierTo(w * 0.92, h * 0.06, w * 0.92, h * 0.30)
-      ..lineTo(w * 0.92, h * 0.46)
-      ..close();
-    canvas.drawRRect(body, wood);
-    canvas.drawRRect(body, edge);
-    canvas.drawPath(lid, wood);
-    canvas.drawPath(lid, edge);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(w * 0.06, h * 0.36, w * 0.88, h * 0.14),
-        const Radius.circular(1.5),
-      ),
-      metal,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: Offset(w * 0.50, h * 0.43),
-          width: w * 0.20,
-          height: h * 0.20,
-        ),
-        Radius.circular(w * 0.06),
-      ),
-      Paint()..color = const Color(0xFF241C14),
-    );
-    canvas.drawCircle(Offset(w * 0.50, h * 0.41), w * 0.028, metal);
-    canvas.drawLine(
-      Offset(w * 0.50, h * 0.43),
-      Offset(w * 0.50, h * 0.48),
-      Paint()
-        ..color = const Color(0xFFF7FBFF)
-        ..strokeWidth = (w * 0.03).clamp(1.0, 1.4)
-        ..strokeCap = StrokeCap.round,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _ChestPainter oldDelegate) =>
-      oldDelegate.color != color;
-}
-
 class _HomeGlow extends StatelessWidget {
   final double? top;
   final double? left;
@@ -1486,11 +1711,14 @@ class _PowerOfferDialogState extends State<_PowerOfferDialog> {
   void initState() {
     super.initState();
     widget.game.profile.addListener(_refresh);
+    widget.game.rewardedAds.addListener(_refresh);
+    unawaited(widget.game.rewardedAds.initialize());
   }
 
   @override
   void dispose() {
     widget.game.profile.removeListener(_refresh);
+    widget.game.rewardedAds.removeListener(_refresh);
     super.dispose();
   }
 
@@ -1514,7 +1742,7 @@ class _PowerOfferDialogState extends State<_PowerOfferDialog> {
       case PowerUp.extraTime:
         return '+15 seconds on the clock';
       case PowerUp.slowDown:
-        return 'Slower rows for 5 seconds';
+        return 'Rows move 15% slower';
       case PowerUp.panic:
         return 'Clears every visible row';
     }
@@ -1539,12 +1767,33 @@ class _PowerOfferDialogState extends State<_PowerOfferDialog> {
     if (mounted) setState(() {});
   }
 
+  Future<void> _watchAd() async {
+    setState(() {
+      _busy = true;
+      _note = null;
+    });
+    final earned = await widget.game.rewardedAds.show();
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (!earned) {
+      setState(() => _note = 'Ad not ready. Try again.');
+      return;
+    }
+    widget.game.profile.grant(widget.kind, 5);
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => _RewardDialog(kind: widget.kind, amount: 5),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cost = PlayerProfile.emeraldCost(widget.kind);
     final owned = widget.game.profile.countOf(widget.kind);
     final emeralds = widget.game.profile.emeralds;
     final canBuy = emeralds >= cost;
+    final adReady = widget.game.rewardedAds.isReady && !_busy;
     return _ArcadeDialog(
       accent: _color,
       child: Column(
@@ -1578,20 +1827,11 @@ class _PowerOfferDialogState extends State<_PowerOfferDialog> {
             style: const TextStyle(color: Color(0xFFC5D7E2), height: 1.3),
           ),
           const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _InfoPill(label: 'OWNED', value: '$owned'),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _InfoPill(
-                  label: 'COST',
-                  value: '$cost',
-                  valueColor: const Color(0xFFFF8A93),
-                ),
-              ),
-            ],
+          Align(
+            child: SizedBox(
+              width: 220,
+              child: _InfoPill(label: 'OWNED', value: '$owned'),
+            ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -1607,38 +1847,58 @@ class _PowerOfferDialogState extends State<_PowerOfferDialog> {
             children: [
               Expanded(
                 child: SizedBox(
-                  height: 48,
+                  height: 52,
                   child: ElevatedButton(
                     key: const Key('power-buy'),
-                    // A disabled Material button fades toward black and
-                    // disappears on this dark card. Keep the label readable.
                     onPressed: !canBuy || _busy
                         ? null
                         : () {
-                            if (widget.game.profile.buyWithEmeralds(
-                              widget.kind,
-                            )) {
-                              Navigator.of(context).pop();
-                            }
+                            widget.game.profile.buyWithEmeralds(widget.kind);
                           },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFF2D3A),
-                      foregroundColor: Colors.white,
+                      backgroundColor: const Color(0xFFFFF6E4),
+                      foregroundColor: const Color(0xFF2A241C),
                       disabledBackgroundColor: const Color(0xFFB42332),
                       disabledForegroundColor: Colors.white,
-                      elevation: 0,
+                      elevation: canBuy ? 5 : 0,
+                      shadowColor: const Color(0x66FF2D3A),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(22),
+                        side: BorderSide(
+                          color: canBuy
+                              ? const Color(0xFFFF8A93)
+                              : const Color(0xFF7A1822),
+                          width: 1.6,
+                        ),
                       ),
                     ),
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
-                      child: Text(
-                        'Buy for $cost emeralds',
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Add 1',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: canBuy
+                                  ? const Color(0xFF2A241C)
+                                  : Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '$cost',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFFFF2D3A),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const _Gem(size: 13),
+                        ],
                       ),
                     ),
                   ),
@@ -1648,7 +1908,7 @@ class _PowerOfferDialogState extends State<_PowerOfferDialog> {
                 const SizedBox(width: 8),
                 SizedBox(
                   width: 48,
-                  height: 48,
+                  height: 52,
                   child: Tooltip(
                     message: 'Emeralds',
                     child: ElevatedButton(
@@ -1660,7 +1920,7 @@ class _PowerOfferDialogState extends State<_PowerOfferDialog> {
                         elevation: 0,
                         padding: EdgeInsets.zero,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(18),
                           side: const BorderSide(
                             color: Color(0xFFFF2D3A),
                             width: 1.4,
@@ -1675,43 +1935,50 @@ class _PowerOfferDialogState extends State<_PowerOfferDialog> {
                   ),
                 ),
               ],
-            ],
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            height: 46,
-            child: OutlinedButton.icon(
-              onPressed: _busy
-                  ? null
-                  : () async {
-                      setState(() {
-                        _busy = true;
-                        _note = null;
-                      });
-                      final earned = await widget.game.rewardedAds.show();
-                      if (!context.mounted) return;
-                      if (earned) {
-                        widget.game.profile.grant(widget.kind);
-                        Navigator.of(context).pop();
-                      } else {
-                        setState(() {
-                          _busy = false;
-                          _note = 'Ad not ready. Try again.';
-                        });
-                      }
-                    },
-              icon: const Icon(Icons.smart_display_outlined),
-              label: Text(_busy ? 'Loading ad…' : 'Watch ad'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF8BE9FF),
-                disabledForegroundColor: const Color(0xFF8BE9FF),
-                side: const BorderSide(color: Color(0xFF8BE9FF), width: 1.4),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+              const SizedBox(width: 8),
+              Expanded(
+                child: SizedBox(
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: adReady ? _watchAd : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF123246),
+                      foregroundColor: const Color(0xFF8BE9FF),
+                      disabledBackgroundColor: const Color(0xFF243038),
+                      disabledForegroundColor: const Color(0xFF6A7C88),
+                      elevation: adReady ? 5 : 0,
+                      shadowColor: const Color(0x668BE9FF),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(22),
+                        side: BorderSide(
+                          color: adReady
+                              ? const Color(0xFF8BE9FF)
+                              : const Color(0xFF3A4A54),
+                          width: 1.6,
+                        ),
+                      ),
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            adReady ? 'Add 5' : 'Loading…',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Icon(Icons.smart_display_outlined, size: 22),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
           if (_note != null) ...[
             const SizedBox(height: 8),
@@ -1721,13 +1988,93 @@ class _PowerOfferDialogState extends State<_PowerOfferDialog> {
               style: const TextStyle(color: Color(0xFFFFB4BA), fontSize: 12),
             ),
           ],
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text(
-              'Close',
-              style: TextStyle(
-                color: Color(0xFF9BB4C2),
-                fontWeight: FontWeight.w700,
+          const SizedBox(height: 10),
+          Center(
+            child: OutlinedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFC5D7E2),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 6,
+                ),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                side: const BorderSide(color: Color(0xFF9BB4C2)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Close',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RewardDialog extends StatelessWidget {
+  final PowerUp kind;
+  final int amount;
+  const _RewardDialog({required this.kind, required this.amount});
+
+  String get _title {
+    switch (kind) {
+      case PowerUp.extraTime:
+        return 'Extra time';
+      case PowerUp.slowDown:
+        return 'Slow-down';
+      case PowerUp.panic:
+        return 'Panic';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _ArcadeDialog(
+      accent: const Color(0xFFFFD56A),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('🎉', style: TextStyle(fontSize: 42)),
+          const SizedBox(height: 8),
+          const Text(
+            'Congratulations',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'You received ${amount}x $_title',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Color(0xFFFFD56A),
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Center(
+            child: ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF3DDC97),
+                foregroundColor: const Color(0xFF102018),
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+              child: const Text(
+                'Nice!',
+                style: TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
           ),
@@ -1892,6 +2239,8 @@ class _PulseCta extends StatefulWidget {
   final VoidCallback onPressed;
   final double fontSize;
   final double height;
+  final Duration pulse;
+  final Color? borderColor;
 
   const _PulseCta({
     super.key,
@@ -1899,6 +2248,8 @@ class _PulseCta extends StatefulWidget {
     required this.onPressed,
     this.fontSize = 20,
     this.height = 52,
+    this.pulse = const Duration(milliseconds: 1400),
+    this.borderColor,
   });
 
   @override
@@ -1914,7 +2265,7 @@ class _PulseCtaState extends State<_PulseCta>
     super.initState();
     _pulse = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
+      duration: widget.pulse,
     )..repeat(reverse: true);
   }
 
@@ -1960,6 +2311,9 @@ class _PulseCtaState extends State<_PulseCta>
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
+              side: widget.borderColor == null
+                  ? BorderSide.none
+                  : BorderSide(color: widget.borderColor!, width: 3),
             ),
           ),
           child: Text(
@@ -2132,107 +2486,11 @@ class _BobbingBricksState extends State<_BobbingBricks>
   }
 }
 
-class _Pill extends StatelessWidget {
-  final String label;
-  final Color color;
-  const _Pill({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 1.4,
-        ),
-      ),
-    );
-  }
-}
-
-class _RewardLine extends StatelessWidget {
-  final Color color;
-  final PowerUp kind;
-  final String title;
-  final String detail;
-
-  const _RewardLine({
-    required this.color,
-    required this.kind,
-    required this.title,
-    required this.detail,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.14),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withValues(alpha: 0.85)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Row(
-            children: [
-              _PowerMark(kind: kind, color: color, size: 22),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 2,
-                      style: TextStyle(
-                        color: color,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                      ),
-                    ),
-                    Text(
-                      detail,
-                      maxLines: 2,
-                      style: const TextStyle(
-                        color: Color(0xFFC5D7E2),
-                        fontSize: 11,
-                        height: 1.2,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 6),
-              _StashCount(count: '+1', color: color, width: 48, height: 42),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _InfoPill extends StatelessWidget {
   final String label;
   final String value;
-  final Color valueColor;
 
-  const _InfoPill({
-    required this.label,
-    required this.value,
-    this.valueColor = Colors.white,
-  });
+  const _InfoPill({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -2243,25 +2501,26 @@ class _InfoPill extends StatelessWidget {
         border: Border.all(color: const Color(0x332E6F9A)),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: 14),
         child: Column(
           children: [
             Text(
               label,
               style: const TextStyle(
                 color: Color(0xFF9BB4C2),
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.2,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              value,
-              style: TextStyle(
-                color: valueColor,
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
+                letterSpacing: 1.6,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 40,
+                fontWeight: FontWeight.w900,
+                height: 1,
               ),
             ),
           ],
@@ -2312,6 +2571,29 @@ class _EmeraldPackTile extends StatelessWidget {
                         fontSize: 16,
                       ),
                     ),
+                    if (pack.title == 'Vault') ...[
+                      const SizedBox(height: 4),
+                      const DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Color(0xFFFFD56A),
+                          borderRadius: BorderRadius.all(Radius.circular(999)),
+                        ),
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          child: Text(
+                            'Value pack',
+                            style: TextStyle(
+                              color: Color(0xFF3A2A14),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                     Text(
                       _packFlavor(pack.title),
                       style: const TextStyle(

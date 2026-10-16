@@ -30,7 +30,7 @@ void main() {
     expect(startBox.height, 68);
     expect(_pulseScale(tester, const Key('menu-start')), closeTo(1, 0.001));
 
-    await tester.pump(const Duration(milliseconds: 1400));
+    await tester.pump(const Duration(milliseconds: 900));
     expect(_pulseScale(tester, const Key('menu-start')), closeTo(1.04, 0.01));
 
     game.score.score = 40;
@@ -104,7 +104,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
 
-      expect(find.text('Buy for 5 emeralds'), findsOneWidget);
+      expect(find.text('Add 1'), findsOneWidget);
       expect(find.text('You have 0 emeralds'), findsOneWidget);
       final buy = tester.widget<ElevatedButton>(
         find.byKey(const Key('power-buy')),
@@ -147,7 +147,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('Buy for 12 emeralds'), findsOneWidget);
+    expect(find.text('Add 1'), findsOneWidget);
     expect(find.byKey(const Key('power-emerald-cart')), findsOneWidget);
   });
 
@@ -173,7 +173,8 @@ void main() {
 
     expect(profile.extraTime, 3);
     expect(profile.emeralds, 5);
-    expect(find.text('Buy for 5 emeralds'), findsNothing);
+    expect(find.text('Extra time'), findsWidgets);
+    expect(find.text('Add 1'), findsOneWidget);
   });
 
   testWidgets('start screen keeps power-ups for use during play', (

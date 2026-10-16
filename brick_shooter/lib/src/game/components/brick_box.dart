@@ -6,11 +6,16 @@ class BrickBox extends PositionComponent {
   ui.Color color;
   final double radius;
   final double borderWidth;
+  int? lane;
+
+  /// A missed shot paints this brick red until the row is removed.
+  bool missed = false;
 
   BrickBox({
     required this.color,
     this.radius = 18,
     this.borderWidth = 3,
+    this.lane,
   }) {
     anchor = Anchor.topLeft;
   }

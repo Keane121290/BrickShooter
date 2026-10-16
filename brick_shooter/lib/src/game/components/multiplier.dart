@@ -6,6 +6,9 @@ class Multiplier extends Component {
   final double width;
   final double floorY;
   final int Function() getScore;
+  int _shown = 1;
+  int _popLevel = 1;
+  double _pop = 0;
 
   // Poeng som kreves for å nå neste multiplikator (2x, 3x, ...).
   // 2x kommer tidlig. Deretter tettere steg, så en god runde kan klatre videre.
@@ -123,10 +126,11 @@ class Multiplier extends Component {
     canvas.drawParagraph(glowParagraph, ui.Offset(textX + 1, textY + 1));
     // Draw main text (centered)
     canvas.drawParagraph(paragraph, ui.Offset(textX, textY));
+    _drawPop(canvas, textY);
 
     // Draw the fillable bar (fills from middle outward)
-    const barHeight = 8.0; // Doubled height
-    final barY = multiplierY - 10;
+    const barHeight = 16.0;
+    final barY = multiplierY - 14;
     final centerX = width / 2;
     
     // Draw background bar (subtle white)
@@ -168,9 +172,47 @@ class Multiplier extends Component {
     );
   }
 
+  void _drawPop(ui.Canvas canvas, double textY) {
+    if (_pop <= 0) return;
+    final rise = (1 - _pop) * 34;
+    final scale = 1.05 + (1 - _pop) * 0.35;
+    final color = _multiplierColors[(_popLevel - 1) % _multiplierColors.length];
+    final builder = ui.ParagraphBuilder(
+      ui.ParagraphStyle(
+        fontSize: 40 * scale,
+        fontWeight: ui.FontWeight.w800,
+        textAlign: ui.TextAlign.center,
+      ),
+    );
+    builder.pushStyle(
+      ui.TextStyle(
+        color: color.withValues(alpha: _pop),
+        shadows: [
+          ui.Shadow(color: color.withValues(alpha: _pop * 0.8), blurRadius: 16),
+        ],
+      ),
+    );
+    builder.addText('$_popLevel×');
+    final paragraph = builder.build()
+      ..layout(ui.ParagraphConstraints(width: width));
+    canvas.drawParagraph(
+      paragraph,
+      ui.Offset((width - paragraph.longestLine) / 2, textY - 46 - rise),
+    );
+  }
+
   @override
   void update(double dt) {
-    // Component updates automatically when score changes
+    final now = getCurrentMultiplier();
+    if (now > _shown) {
+      _popLevel = now;
+      _pop = 1;
+    }
+    _shown = now;
+    if (_pop > 0) {
+      _pop -= dt / 0.7;
+      if (_pop < 0) _pop = 0;
+    }
   }
 }
 

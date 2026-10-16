@@ -48,6 +48,17 @@ class GameButton extends PositionComponent with TapCallbacks {
     canvas.drawCircle(center, radius, shadowPaint);
     canvas.restore();
 
+    final iconPaint = ui.Paint()
+      ..color = iconColor
+      ..style = ui.PaintingStyle.fill
+      ..strokeWidth = size.y * 0.12
+      ..strokeCap = ui.StrokeCap.round;
+
+    if (buttonType == ButtonType.pause) {
+      _paintPause(canvas, center, radius, iconPaint);
+      return;
+    }
+
     // Runde bakgrunn med gradient
     final gradient = ui.Gradient.radial(
       center,
@@ -68,33 +79,9 @@ class GameButton extends PositionComponent with TapCallbacks {
       ..strokeWidth = 2.5;
     canvas.drawCircle(center, radius - 1.25, borderPaint);
 
-    // Tegn ikon basert på buttonType
-    final iconPaint = ui.Paint()
-      ..color = iconColor
-      ..style = ui.PaintingStyle.fill
-      ..strokeWidth = size.y * 0.12
-      ..strokeCap = ui.StrokeCap.round;
-
     switch (buttonType) {
       case ButtonType.pause:
-        // To vertikale streker for pause
-        final barWidth = size.y * 0.15;
-        final barHeight = size.y * 0.4;
-        final spacing = size.y * 0.1;
-        final leftBarX = center.dx - spacing / 2 - barWidth;
-        final rightBarX = center.dx + spacing / 2;
-        final barY = center.dy - barHeight / 2;
-        
-        canvas.drawRect(
-          ui.Rect.fromLTWH(leftBarX, barY, barWidth, barHeight),
-          iconPaint,
-        );
-        canvas.drawRect(
-          ui.Rect.fromLTWH(rightBarX, barY, barWidth, barHeight),
-          iconPaint,
-        );
         break;
-
       case ButtonType.play:
         // Triangel for play
         final triangleSize = size.y * 0.35;
@@ -168,6 +155,79 @@ class GameButton extends PositionComponent with TapCallbacks {
         headPath.close();
         canvas.drawPath(headPath, iconPaint);
         break;
+    }
+  }
+
+  void _paintPause(
+    ui.Canvas canvas,
+    ui.Offset center,
+    double radius,
+    ui.Paint iconPaint,
+  ) {
+    canvas.drawCircle(
+      center,
+      radius + 2,
+      ui.Paint()
+        ..color = backgroundColor.withValues(alpha: 0.45)
+        ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 7),
+    );
+
+    final edge = ui.Color.lerp(
+      backgroundColor,
+      const ui.Color(0xFF062033),
+      0.45,
+    )!;
+    final highlight = ui.Color.lerp(
+      const ui.Color(0xFFFFFFFF),
+      backgroundColor,
+      0.28,
+    )!;
+    canvas.drawCircle(
+      center,
+      radius,
+      ui.Paint()
+        ..shader = ui.Gradient.radial(
+          center.translate(-radius * 0.18, -radius * 0.22),
+          radius * 1.35,
+          [highlight, backgroundColor, edge],
+          const [0.0, 0.48, 1.0],
+        ),
+    );
+    canvas.drawCircle(
+      center,
+      radius - 1.3,
+      ui.Paint()
+        ..style = ui.PaintingStyle.stroke
+        ..strokeWidth = 2.4
+        ..color = const ui.Color(0xF2FFFFFF),
+    );
+    canvas.drawCircle(
+      center,
+      radius * 0.78,
+      ui.Paint()
+        ..style = ui.PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..color = const ui.Color(0x66FFFFFF),
+    );
+
+    final barWidth = size.y * 0.13;
+    final barHeight = size.y * 0.38;
+    final gap = size.y * 0.1;
+    final barY = center.dy - barHeight / 2;
+    final radiusBar = ui.Radius.circular(barWidth / 2);
+    for (final dx in [-gap / 2 - barWidth, gap / 2]) {
+      final bar = ui.RRect.fromRectAndRadius(
+        ui.Rect.fromLTWH(center.dx + dx, barY, barWidth, barHeight),
+        radiusBar,
+      );
+      canvas.drawRRect(bar, iconPaint);
+      canvas.drawRRect(
+        bar,
+        ui.Paint()
+          ..style = ui.PaintingStyle.stroke
+          ..strokeWidth = 1
+          ..color = const ui.Color(0x55FFFFFF),
+      );
     }
   }
 }

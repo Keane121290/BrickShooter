@@ -37,7 +37,7 @@ Future<void> main() async {
     ),
   );
 
-  // UMP and ATT run after the first frame, then the ads SDK starts.
+  // First launch asks for ad consent, then a rewarded ad is loaded and kept ready.
   WidgetsBinding.instance.addPostFrameCallback((_) {
     unawaited(game.rewardedAds.initialize());
   });

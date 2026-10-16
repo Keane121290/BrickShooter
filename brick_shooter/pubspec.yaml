@@ -29,6 +29,10 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/audio/shot.wav
+    - assets/audio/clear.wav
+    - assets/audio/over.wav
 
   # Example for custom fonts later (leave commented until you add files)
   # fonts:

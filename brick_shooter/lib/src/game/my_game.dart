@@ -5,6 +5,7 @@ import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Game configuration and state
@@ -35,22 +36,25 @@ import 'components/board_grid.dart';
 import 'components/multiplier.dart';
 import 'components/game_button.dart';
 import 'components/timer_display.dart';
+import 'components/time_pressure.dart';
+import 'components/float_label.dart';
+import 'game_sounds.dart';
 
 // Tutorial components
 import 'components/tutorial/finger_hint.dart';
 import 'components/tutorial/lane_highlight.dart';
 
 class MyGame extends FlameGame with TapCallbacks {
-  MyGame({
-    PlayerProfile? profile,
-    RewardedPowerAds? rewardedAds,
-    this.shop,
-  }) : profile = profile ?? PlayerProfile(),
-       rewardedAds = rewardedAds ?? RewardedPowerAds();
+  MyGame({PlayerProfile? profile, RewardedPowerAds? rewardedAds, this.shop})
+    : profile = profile ?? PlayerProfile(),
+      rewardedAds = rewardedAds ?? RewardedPowerAds() {
+    sounds = GameSounds(this.profile);
+  }
 
   final PlayerProfile profile;
   final RewardedPowerAds rewardedAds;
   final EmeraldShop? shop;
+  late final GameSounds sounds;
 
   // ========== Game State ==========
   GamePhase phase = GamePhase.menu;
@@ -87,7 +91,6 @@ class MyGame extends FlameGame with TapCallbacks {
 
   TimerDisplay? _timerDisplay;
   double _timeRemaining = GameConfig.roundSeconds;
-  double _slowLeft = 0;
 
   GameButton? _pauseButton;
   GamePhase _pausedFrom = GamePhase.playing;
@@ -117,6 +120,7 @@ class MyGame extends FlameGame with TapCallbacks {
       // Hvis loading feiler, fortsett med default verdi (0)
       debugPrint('Warning: Failed to load best score: $e');
     }
+    await sounds.prepare();
 
     final double w = size.x == 0 ? 1080.0 : size.x;
     final double h = size.y == 0 ? 1920.0 : size.y;
@@ -131,7 +135,8 @@ class MyGame extends FlameGame with TapCallbacks {
         GameConfig.boardTop + GameConfig.rowsCapacityOnScreen * rowHeight;
     if (needed > h) {
       final s =
-          (h - GameConfig.boardTop) / (GameConfig.rowsCapacityOnScreen * rowHeight);
+          (h - GameConfig.boardTop) /
+          (GameConfig.rowsCapacityOnScreen * rowHeight);
       padPx *= s;
       brickWidth *= s;
       brickHeight *= s;
@@ -141,7 +146,7 @@ class MyGame extends FlameGame with TapCallbacks {
 
     // Tutorial line at 1/3 of screen height
     tutorialLineY = h / 3;
-    
+
     // Beregn minsteplassering (stopY) - samme som brukes i tutorialDrop
     minimumBottomY = tutorialLineY + rowHeight * 0.8;
 
@@ -173,7 +178,9 @@ class MyGame extends FlameGame with TapCallbacks {
         // tutorialHold and other phases have speed 0
         return 0.0;
       },
-      rowColor: const ui.Color(0xFF1A7AB8), // Mørkere blå for bedre kontrast med hvit tekst
+      rowColor: const ui.Color(
+        0xFF1A7AB8,
+      ), // Mørkere blå for bedre kontrast med hvit tekst
     );
     // Sett minsteplassering for rader
     rowController.minimumBottomY = minimumBottomY;
@@ -218,10 +225,7 @@ class MyGame extends FlameGame with TapCallbacks {
 
     // Top banner filter - mørkt gradient over toppen for bedre kontrast med poengsummen
     const bannerHeight = 120.0; // Høyde på banner-filteret
-    topBannerFilter = TopBannerFilter(
-      width: w,
-      height: bannerHeight,
-    );
+    topBannerFilter = TopBannerFilter(width: w, height: bannerHeight);
     add(topBannerFilter);
 
     // Set score text position to center horizontally and size to match brick height
@@ -229,6 +233,17 @@ class MyGame extends FlameGame with TapCallbacks {
     _scoreText.anchor = Anchor.topCenter;
     _applyScoreStyle();
     add(_scoreText);
+
+    final pressure = TimePressure(
+      secondsLeft: () => _timeRemaining,
+      visible: () =>
+          phase == GamePhase.playing &&
+          _timeRemaining > 0 &&
+          _timeRemaining < 10,
+      fontSize: brickHeight * 2,
+    );
+    pressure.position = Vector2(w / 2, h * 0.38);
+    add(pressure);
 
     // Legg til tidteller til høyre for poengsummen
     const timerMarginFromEdge = 20.0; // Margin fra høyre kant
@@ -248,18 +263,18 @@ class MyGame extends FlameGame with TapCallbacks {
     // Knappene skal ha samme høyde som poengsummen (brickHeight) og være vertikalt sentrert
     final buttonSize = brickHeight;
     const marginFromEdge = 20.0; // Margin fra venstre kant
-    
+
     // Poengsummen har anchor.topCenter på y=24, så senterlinjen er på y=24 + brickHeight/2
     // Knappene skal også ha senterlinjen på samme sted
     final buttonCenterY = 24.0 + brickHeight / 2;
     final buttonY = buttonCenterY - buttonSize / 2; // Topp av knappen
-    
+
     // Plasser knappene fra venstre kant med margin
     final buttonStartX = marginFromEdge;
 
     _pauseButton = GameButton(
       buttonType: ButtonType.pause,
-      backgroundColor: const ui.Color(0xFF1A7AB8), // Mørk blå
+      backgroundColor: const ui.Color(0xFF3CB4F5), // Mørk blå
       iconColor: const ui.Color(0xFFFFFFFF),
       onTap: _pauseGame,
       x: buttonStartX,
@@ -284,7 +299,7 @@ class MyGame extends FlameGame with TapCallbacks {
       };
       final caption = switch (kind) {
         PowerUp.extraTime => '+15 seconds',
-        PowerUp.slowDown => 'Slow rows',
+        PowerUp.slowDown => '15% slower',
         PowerUp.panic => 'Clear rows',
       };
       final orb = PowerOrb(
@@ -299,11 +314,18 @@ class MyGame extends FlameGame with TapCallbacks {
             phase == GamePhase.playing ||
             phase == GamePhase.paused,
         explained: () =>
-            phase == GamePhase.tutorialDrop ||
-            phase == GamePhase.tutorialHold ||
-            phase == GamePhase.paused,
+            phase == GamePhase.paused ||
+            (kind == PowerUp.extraTime &&
+                (phase == GamePhase.tutorialDrop ||
+                    phase == GamePhase.tutorialHold)),
         caption: caption,
         urgency: () => _powerUrgency(kind),
+        usable: () {
+          final tutorial =
+              phase == GamePhase.tutorialDrop || phase == GamePhase.tutorialHold;
+          if (!tutorial) return true;
+          return kind == PowerUp.extraTime;
+        },
         onPressed: () => _usePower(kind),
       );
       _powerOrbs.add(orb);
@@ -327,10 +349,11 @@ class MyGame extends FlameGame with TapCallbacks {
 
     // Sjekk om tap er på en knapp først (knappene håndterer sine egne taps)
     // Hvis ikke, håndter som vanlig lane-tap
-    
-    final lane = (event.canvasPosition.x / laneWidth)
-        .floor()
-        .clamp(0, GameConfig.lanes - 1);
+
+    final lane = (event.canvasPosition.x / laneWidth).floor().clamp(
+      0,
+      GameConfig.lanes - 1,
+    );
 
     if (phase == GamePhase.playing) {
       _enqueueFire(lane);
@@ -365,6 +388,9 @@ class MyGame extends FlameGame with TapCallbacks {
     // Reserve; if fails (blocked or no space), unlock + drain queue
     final ok = rowController.reserve(target, lane);
     if (!ok) {
+      if (target.filledLanes.contains(lane)) {
+        target.flashLane(lane);
+      }
       _laneLocked[lane] = false;
       _drainQueueIfAny(lane);
       return;
@@ -398,13 +424,16 @@ class MyGame extends FlameGame with TapCallbacks {
         if (becameFull) {
           target.pendingClear = true;
           bulletController.cancelHigherInLane(lane, target.bottomY);
-          
+
           // Bare den nederste fulle raden fjernes. Rader over blir liggende
           // til de selv er nederst, og ryddes da i samme omgang.
           final currentMultiplier = multiplier.getCurrentMultiplier();
-          final clearedCount = rowController.clearBottomIfPending(onExplode: _onRowRemoved);
+          final clearedCount = rowController.clearBottomIfPending(
+            onExplode: _onRowRemoved,
+          );
           if (clearedCount > 0) {
             _addScore(currentMultiplier * clearedCount);
+            sounds.play(GameSounds.clear);
           }
         }
         _laneLocked[lane] = false;
@@ -460,7 +489,6 @@ class MyGame extends FlameGame with TapCallbacks {
     _applyScoreStyle();
 
     _timeRemaining = GameConfig.roundSeconds;
-    _slowLeft = 0;
     rowController.speedScale = 1;
     if (_timerDisplay != null) {
       _timerDisplay!.timeRemaining = _timeRemaining;
@@ -494,7 +522,8 @@ class MyGame extends FlameGame with TapCallbacks {
       visible: GameConfig.initialRows,
       prebuffer: GameConfig.prebufferRows,
       startAnimationTargetY: minimumBottomY,
-      startAnimationDuration: 0.45, // 0.45 sekunder for animasjonen (dobbelt hastighet)
+      startAnimationDuration:
+          0.45, // 0.45 sekunder for animasjonen (dobbelt hastighet)
     );
     bulletController.syncCottonCandy(
       active: false,
@@ -554,16 +583,12 @@ class MyGame extends FlameGame with TapCallbacks {
     bulletController.setPaused(true);
     _clearTutorialUi();
     score.podiumPlace = profile.submitScore(score.score);
+    sounds.play(GameSounds.over, volume: 0.8);
     _setPhase(GamePhase.gameOver);
   }
 
   @override
   void update(double dt) {
-    if (phase == GamePhase.playing && _slowLeft > 0) {
-      _slowLeft -= dt;
-      if (_slowLeft < 0) _slowLeft = 0;
-    }
-    rowController.speedScale = _slowLeft > 0 ? GameConfig.slowDownScale : 1;
     final tutorial =
         phase == GamePhase.tutorialDrop || phase == GamePhase.tutorialHold;
     final orbY = tutorial ? _powerOrbY - _tutorialPowerLift : _powerOrbY;
@@ -573,7 +598,9 @@ class MyGame extends FlameGame with TapCallbacks {
     super.update(dt);
 
     // Oppdater start animation time kontinuerlig når vi er i tutorialDrop eller playing fase
-    if (phase == GamePhase.tutorialDrop || phase == GamePhase.playing || phase == GamePhase.tutorialHold) {
+    if (phase == GamePhase.tutorialDrop ||
+        phase == GamePhase.playing ||
+        phase == GamePhase.tutorialHold) {
       _startAnimationTime += dt;
     }
 
@@ -586,7 +613,7 @@ class MyGame extends FlameGame with TapCallbacks {
       }
       _timerDisplay!.timeRemaining = _timeRemaining;
     }
-    
+
     if (_isAnimating && _startAnimationTime >= 1.2) {
       _isAnimating = false;
     }
@@ -600,7 +627,7 @@ class MyGame extends FlameGame with TapCallbacks {
 
     if (phase == GamePhase.tutorialDrop) {
       final bottom = rowController.getBottomRow();
-      
+
       // Vent til start-animasjonen er ferdig før vi sjekker stopp-posisjon
       if (!rowController.isStartAnimation) {
         // Check if bottom row has reached the stop position
@@ -627,11 +654,14 @@ class MyGame extends FlameGame with TapCallbacks {
       // 1) CLEAR bottom if pending (may chain)
       // Get multiplier before clearing (so all rows in batch use same multiplier)
       final currentMultiplier = multiplier.getCurrentMultiplier();
-      final clearedCount = rowController.clearBottomIfPending(onExplode: _onRowRemoved);
-      
+      final clearedCount = rowController.clearBottomIfPending(
+        onExplode: _onRowRemoved,
+      );
+
       // Add score for all cleared rows (multiplier × number of rows)
       if (clearedCount > 0) {
         _addScore(currentMultiplier * clearedCount);
+        sounds.play(GameSounds.clear);
       }
 
       rowController.tickCottonCandy(dt);
@@ -643,7 +673,7 @@ class MyGame extends FlameGame with TapCallbacks {
 
       // 2) RECYCLE rader som går ut av skjermen (pre-genererte 500 rader)
       rowController.tickSpawn(dt);
-      
+
       // 3) Sjekk kontinuerlig at den nederste raden respekterer minsteplassering
       // Dette må gjøres etter både fjerning og spawning
       rowController.ensureMinimumPosition(dt);
@@ -710,7 +740,10 @@ class MyGame extends FlameGame with TapCallbacks {
         final rps = rowHeight <= 0 ? 0.0 : difficulty.rowPxPerSec / rowHeight;
         final speedPulse = rps < 2.5
             ? 0.0
-            : (0.55 + (((rps - 2.5) / 0.5).floor() + 1) * 0.2).clamp(0.55, 1.35);
+            : (0.55 + (((rps - 2.5) / 0.5).floor() + 1) * 0.2).clamp(
+                0.55,
+                1.35,
+              );
         final deep = _rowsPastSixty() ? strong : 0.0;
         return speedPulse > deep ? speedPulse : deep;
       case PowerUp.panic:
@@ -719,7 +752,12 @@ class MyGame extends FlameGame with TapCallbacks {
   }
 
   void useExtraTime() {
-    if (phase != GamePhase.playing) return;
+    if (phase != GamePhase.playing &&
+        phase != GamePhase.paused &&
+        phase != GamePhase.tutorialDrop &&
+        phase != GamePhase.tutorialHold) {
+      return;
+    }
     if (!profile.tryUse(PowerUp.extraTime)) return;
     _timeRemaining += GameConfig.extraTimeSeconds;
     if (_timerDisplay != null) {
@@ -728,27 +766,63 @@ class MyGame extends FlameGame with TapCallbacks {
   }
 
   void useSlowDown() {
-    if (phase != GamePhase.playing) return;
+    if (phase != GamePhase.playing && phase != GamePhase.paused) return;
     if (!profile.tryUse(PowerUp.slowDown)) return;
-    _slowLeft = GameConfig.slowDownSeconds;
-    rowController.speedScale = GameConfig.slowDownScale;
+    difficulty.slowByFraction(1 - GameConfig.slowDownFactor);
+    final orb = _powerOrbs.where((o) => o.kind == PowerUp.slowDown).firstOrNull;
+    if (orb != null) {
+      _float(
+        '−15%',
+        orb.position - Vector2(0, orb.size.y * 0.85),
+        const ui.Color(0xFFB388FF),
+      );
+    }
   }
 
   void usePanic() {
-    if (phase != GamePhase.playing) return;
+    if (phase != GamePhase.playing && phase != GamePhase.paused) return;
     if (!profile.tryUse(PowerUp.panic)) return;
-    final currentMultiplier = multiplier.getCurrentMultiplier();
-    final cleared = rowController.clearVisibleRows(onExplode: _onRowRemoved);
+    final cleared = rowController.clearVisibleRows(
+      onExplode: (row) => _explodeRow(row),
+    );
     if (cleared > 0) {
-      _addScore(currentMultiplier * cleared);
+      _feelPanic();
+      sounds.play(GameSounds.clear);
     }
   }
 
   void _onRowRemoved(FallingRow row) {
     _explodeRow(row);
+    _feelRow();
     if (row.isSpecial) {
       profile.addEmerald();
+      _float(
+        'Emerald',
+        Vector2(size.x / 2, row.bottomY - row.brickHeight / 2),
+        const ui.Color(0xFF3DDC97),
+      );
     }
+  }
+
+  void _float(String text, Vector2 at, ui.Color color) {
+    add(FloatLabel(text: text, color: color, origin: at));
+  }
+
+  void _feelRow() {
+    if (!profile.vibrationEnabled) return;
+    HapticFeedback.mediumImpact();
+  }
+
+  /// About three times a single row tap. Impact length is fixed on both
+  /// platforms, so panic is three taps spread over that span.
+  void _feelPanic() {
+    void buzz() {
+      if (profile.vibrationEnabled) HapticFeedback.heavyImpact();
+    }
+
+    buzz();
+    Future<void>.delayed(const Duration(milliseconds: 70), buzz);
+    Future<void>.delayed(const Duration(milliseconds: 140), buzz);
   }
 
   Future<void> _loadBest() async {
@@ -780,7 +854,8 @@ class MyGame extends FlameGame with TapCallbacks {
 
     _tutorialLane ??= _openLane(bottom);
     final lane = _tutorialLane!;
-    final top = bottom.bottomY + 8;
+    final rowTop = bottom.bottomY + 8;
+    final top = rowTop - 2 * rowHeight;
     final orbSize = brickHeight * 0.82 * 1.5;
     final orbCenter = _powerOrbY - _tutorialPowerLift;
     final aboveOrbs = orbCenter - (orbSize / 2 + 28) * 1.45;
@@ -802,7 +877,7 @@ class MyGame extends FlameGame with TapCallbacks {
         ..setOpacity(1);
     }
 
-    final fingerY = top + 42;
+    final fingerY = rowTop + 42;
     final fingerCenter = Vector2(x + laneWidth / 2, fingerY);
     if (_finger == null) {
       _finger = FingerHint(center: fingerCenter, priority: 991)..setOpacity(1);
@@ -815,7 +890,8 @@ class MyGame extends FlameGame with TapCallbacks {
 
   int _openLane(FallingRow bottom) {
     for (int lane = 0; lane < GameConfig.lanes; lane++) {
-      final free = !bottom.filledLanes.contains(lane) &&
+      final free =
+          !bottom.filledLanes.contains(lane) &&
           !bottom.reservedLanes.contains(lane);
       if (free) return lane;
     }

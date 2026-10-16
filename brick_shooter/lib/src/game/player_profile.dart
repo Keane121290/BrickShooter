@@ -13,6 +13,8 @@ class PlayerProfile extends ChangeNotifier {
   List<int> topScores = [];
   String? dailyRewardDay;
   bool pendingDailyNotice = false;
+  bool vibrationEnabled = true;
+  bool soundEnabled = true;
   bool _claimingDaily = false;
 
   int countOf(PowerUp kind) {
@@ -57,6 +59,8 @@ class PlayerProfile extends ChangeNotifier {
       _insertScore(best);
     }
     dailyRewardDay = prefs.getString('dailyRewardDay');
+    vibrationEnabled = prefs.getBool('vibrationOn') ?? true;
+    soundEnabled = prefs.getBool('soundOn') ?? true;
     await claimDailyReward();
     notifyListeners();
   }
@@ -113,8 +117,8 @@ class PlayerProfile extends ChangeNotifier {
     return true;
   }
 
-  void grant(PowerUp kind) {
-    _addPower(kind, 1);
+  void grant(PowerUp kind, [int amount = 1]) {
+    _addPower(kind, amount);
     notifyListeners();
     _save();
   }
@@ -147,6 +151,16 @@ class PlayerProfile extends ChangeNotifier {
     _save();
   }
 
+  /// Turns this round's emeralds into [factor] times as many.
+  void multiplyRoundEmeralds(int factor) {
+    if (factor <= 1 || emeraldsThisRound <= 0) return;
+    final bonus = emeraldsThisRound * (factor - 1);
+    emeralds += bonus;
+    emeraldsThisRound += bonus;
+    notifyListeners();
+    _save();
+  }
+
   void _addPower(PowerUp kind, int amount) {
     switch (kind) {
       case PowerUp.extraTime:
@@ -173,6 +187,18 @@ class PlayerProfile extends ChangeNotifier {
     return place <= 3 ? place : 0;
   }
 
+  void toggleVibration() {
+    vibrationEnabled = !vibrationEnabled;
+    notifyListeners();
+    _save();
+  }
+
+  void toggleSound() {
+    soundEnabled = !soundEnabled;
+    notifyListeners();
+    _save();
+  }
+
   void _insertScore(int value) {
     final next = [...topScores, value]..sort((a, b) => b.compareTo(a));
     topScores = next.take(3).toList();
@@ -189,5 +215,7 @@ class PlayerProfile extends ChangeNotifier {
       await prefs.setString('dailyRewardDay', dailyRewardDay!);
     }
     await prefs.setBool('profileReady', true);
+    await prefs.setBool('vibrationOn', vibrationEnabled);
+    await prefs.setBool('soundOn', soundEnabled);
   }
 }

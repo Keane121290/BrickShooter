@@ -69,6 +69,7 @@ class FallingRow extends PositionComponent {
   void recolor(ui.Color next) {
     color = next;
     for (final box in children.whereType<BrickBox>()) {
+      if (box.missed) continue;
       box.color = next;
     }
   }
@@ -103,8 +104,16 @@ class FallingRow extends PositionComponent {
     }
   }
 
+  void flashLane(int lane) {
+    for (final box in children.whereType<BrickBox>()) {
+      if (box.lane != lane) continue;
+      box.missed = true;
+      box.color = const ui.Color(0xFFFF2D3A);
+    }
+  }
+
   BrickBox _addBrick(int lane, {required bool pop}) {
-    final box = BrickBox(color: color, radius: 18, borderWidth: 3)
+    final box = BrickBox(color: color, radius: 18, borderWidth: 3, lane: lane)
       ..position = Vector2(lane * laneWidth + pad, -brickHeight)
       ..size = Vector2(brickWidth, brickHeight)
       ..priority = 2;

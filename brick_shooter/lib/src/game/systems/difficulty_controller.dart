@@ -8,10 +8,7 @@ class DifficultyController extends Component {
   final int Function() getScore;
   bool _paused = false;
 
-  DifficultyController({
-    required this.rowHeight,
-    required this.getScore,
-  });
+  DifficultyController({required this.rowHeight, required this.getScore});
 
   @override
   Future<void> onLoad() async {
@@ -25,8 +22,7 @@ class DifficultyController extends Component {
 
   void _syncBullet() {
     final rps = (rowPxPerSec / rowHeight);
-    final bulletRps =
-    (GameConfig.bulletBaseRps > rps * GameConfig.bulletFactor)
+    final bulletRps = (GameConfig.bulletBaseRps > rps * GameConfig.bulletFactor)
         ? GameConfig.bulletBaseRps
         : rps * GameConfig.bulletFactor;
     bulletPxPerSec = bulletRps * rowHeight;
@@ -37,16 +33,31 @@ class DifficultyController extends Component {
     _syncBullet();
   }
 
+  /// Drops the current row speed. Score-based acceleration continues from there.
+  void slowByFraction(double fraction) {
+    final rps = rowPxPerSec / rowHeight;
+    final next = (rps * (1 - fraction)).clamp(
+      GameConfig.rowSpeedFloorRps,
+      GameConfig.rowSpeedMaxRps,
+    );
+    rowPxPerSec = next * rowHeight;
+    _syncBullet();
+  }
+
   @override
   void update(double dt) {
     // Don't increase speed when paused
     if (_paused) return;
-    
-    final rps = (rowPxPerSec / rowHeight)
-        .clamp(GameConfig.rowSpeedStartRps, GameConfig.rowSpeedMaxRps);
+
+    final rps = (rowPxPerSec / rowHeight).clamp(
+      GameConfig.rowSpeedFloorRps,
+      GameConfig.rowSpeedMaxRps,
+    );
     final accel = GameConfig.rowAccelForScore(getScore());
-    final next = (rps + accel * dt)
-        .clamp(GameConfig.rowSpeedStartRps, GameConfig.rowSpeedMaxRps);
+    final next = (rps + accel * dt).clamp(
+      GameConfig.rowSpeedFloorRps,
+      GameConfig.rowSpeedMaxRps,
+    );
     rowPxPerSec = next * rowHeight;
     _syncBullet();
   }

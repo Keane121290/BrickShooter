@@ -37,8 +37,16 @@ class IosAdConsent extends ChangeNotifier {
 
   Future<bool>? _ready;
   bool _privacyOptionsRequired = false;
+  bool _consentUnreachable = false;
 
   bool get privacyOptionsRequired => _privacyOptionsRequired;
+
+  /// True when ads may load. A failed consent request does not block them,
+  /// because the form could not be shown. A completed refusal still does.
+  Future<bool> adsAllowed() async {
+    if (_consentUnreachable) return true;
+    return canRequestAds();
+  }
 
   Future<bool> ensureReady() => _ready ??= _prepare();
 
@@ -46,18 +54,23 @@ class IosAdConsent extends ChangeNotifier {
     try {
       await _updateConsent();
       await _showConsentForm();
+      _consentUnreachable = false;
     } catch (error) {
+      _consentUnreachable = true;
       debugPrint('UMP consent update/form failed: $error');
     }
 
-    try {
-      await _requestTracking();
-    } catch (error) {
-      debugPrint('ATT request failed: $error');
-      return false;
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      try {
+        await _requestTracking();
+      } catch (error) {
+        debugPrint('ATT request failed: $error');
+        return false;
+      }
     }
 
     await _refreshPrivacyOptions();
+    if (_consentUnreachable) return true;
     return canRequestAds();
   }
 

@@ -19,6 +19,7 @@ class PowerOrb extends PositionComponent with TapCallbacks {
     required this.explained,
     required this.caption,
     required this.urgency,
+    required this.usable,
     required this.onPressed,
   }) {
     size = Vector2.all(diameter);
@@ -34,6 +35,7 @@ class PowerOrb extends PositionComponent with TapCallbacks {
   final bool Function() explained;
   final String caption;
   final double Function() urgency;
+  final bool Function() usable;
   final void Function() onPressed;
 
   double _clock = 0;
@@ -56,7 +58,7 @@ class PowerOrb extends PositionComponent with TapCallbacks {
 
   @override
   bool onTapDown(TapDownEvent event) {
-    if (!shown() || count() <= 0) return false;
+    if (!shown() || !usable() || count() <= 0) return false;
     onPressed();
     return true;
   }
@@ -65,7 +67,7 @@ class PowerOrb extends PositionComponent with TapCallbacks {
   void render(ui.Canvas canvas) {
     if (!shown()) return;
     final stock = count();
-    final dim = stock <= 0;
+    final dim = stock <= 0 || !usable();
     final center = size.toRect().center;
     final radius = size.x / 2;
 
