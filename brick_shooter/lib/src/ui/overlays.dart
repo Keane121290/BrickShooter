@@ -127,17 +127,12 @@ class _MenuOverlayState extends State<MenuOverlay> {
                                 children: [
                                   const _BrickLogo(),
                                   _AttentionPulse(
-                                    child: Column(
-                                      children: [
-                                        _EmeraldChip(
-                                          key: const Key('menu-emeralds'),
-                                          count: profile.emeralds,
-                                          showLabel: false,
-                                          onTap: _openEmeralds,
-                                        ),
-                                        const SizedBox(height: 6),
-                                        _BuyCart(onTap: _openEmeralds),
-                                      ],
+                                    child: _EmeraldChip(
+                                      key: const Key('menu-emeralds'),
+                                      count: profile.emeralds,
+                                      showLabel: false,
+                                      showCart: true,
+                                      onTap: _openEmeralds,
                                     ),
                                   ),
                                   _Podium(scores: profile.topScores),
@@ -577,7 +572,11 @@ class _GameOverCard extends StatelessWidget {
                   const _NewBestChip(),
                 ],
                 const SizedBox(height: 16),
-                _EmeraldChip(count: emeralds, label: 'THIS ROUND'),
+                _EmeraldChip(
+                  count: emeralds,
+                  label: 'THIS ROUND',
+                  labelBelow: true,
+                ),
                 const SizedBox(height: 16),
                 Row(
                   children: [
@@ -932,12 +931,16 @@ class _EmeraldChip extends StatelessWidget {
   final int count;
   final String label;
   final bool showLabel;
+  final bool labelBelow;
+  final bool showCart;
   final VoidCallback? onTap;
   const _EmeraldChip({
     super.key,
     required this.count,
     this.label = 'EMERALDS',
     this.showLabel = true,
+    this.labelBelow = false,
+    this.showCart = false,
     this.onTap,
   });
 
@@ -947,53 +950,72 @@ class _EmeraldChip extends StatelessWidget {
     final gem = big ? 24.0 : 12.0;
     final gap = big ? 12.0 : 8.0;
     final font = big ? 36.0 : 18.0;
+    final stacked = labelBelow || showCart;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(stacked ? 22 : 999),
         child: Container(
           padding: EdgeInsets.symmetric(
-            horizontal: big ? 28 : 14,
-            vertical: big ? 16 : 8,
+            horizontal: big ? 22 : 14,
+            vertical: stacked ? 12 : (big ? 16 : 8),
           ),
           decoration: BoxDecoration(
             color: const Color(0x33FF2D3A),
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: BorderRadius.circular(stacked ? 22 : 999),
             border: Border.all(
               color: const Color(0xFFFF2D3A),
               width: big ? 2 : 1,
             ),
           ),
-          child: FittedBox(
-            fit: showLabel ? BoxFit.scaleDown : BoxFit.none,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _Gem(size: gem),
-                SizedBox(width: gap),
-                Text(
-                  '$count',
-                  style: TextStyle(
-                    color: const Color(0xFFFF8A93),
-                    fontSize: font,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                if (showLabel) ...[
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _Gem(size: gem),
                   SizedBox(width: gap),
                   Text(
-                    label,
-                    style: const TextStyle(
-                      color: Color(0xFFFFB4BA),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.1,
+                    '$count',
+                    style: TextStyle(
+                      color: const Color(0xFFFF8A93),
+                      fontSize: font,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
+                  if (showLabel && !labelBelow) ...[
+                    SizedBox(width: gap),
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        color: Color(0xFFFFB4BA),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                  ],
                 ],
+              ),
+              if (labelBelow) ...[
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Color(0xFFFFB4BA),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.1,
+                  ),
+                ),
               ],
-            ),
+              if (showCart && onTap != null) ...[
+                const SizedBox(height: 8),
+                _BuyCart(onTap: onTap!, color: const Color(0xFFFF8A93)),
+              ],
+            ],
           ),
         ),
       ),
