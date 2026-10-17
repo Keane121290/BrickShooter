@@ -31,7 +31,8 @@ Future<void> main() async {
             PauseOverlay.id: (context, g) => PauseOverlay(game: g as MyGame),
             GameOverOverlay.id: (context, g) => GameOverOverlay(game: g as MyGame),
           },
-          initialActiveOverlays: const [MenuOverlay.id],
+            GameOverOverlay.id: (context, g) =>
+                GameOverOverlay(game: g as MyGame),
         ),
       ),
     ),
@@ -71,6 +72,9 @@ class _DailyRewardWatcherState extends State<_DailyRewardWatcher>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(widget.profile.claimDailyReward());
+      widget.onResume?.call();
+    } else if (state == AppLifecycleState.paused) {
+      widget.onPause?.call();
     }
   }
 

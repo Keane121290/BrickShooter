@@ -7,15 +7,52 @@ import 'ad_ids.dart';
 import 'ios_ad_consent.dart';
 
 class RewardedPowerAds extends ChangeNotifier {
+  static const rewardCount = 5;
+
   RewardedAd? _ad;
   var _initialized = false;
+  var _loading = false;
+  var _foreground = true;
+  var _retries = 0;
   Future<void>? _initializing;
+  Future<RewardedAd?>? _inFlight;
+  Timer? _retry;
+
+  bool get isReady => _ad != null;
+
+  /// True only while a load request is actually in flight.
+  bool get isLoading => _loading;
 
   Future<void> initialize() {
-    if (_initialized || !AdIds.supported) return Future<void>.value();
+    if (!AdIds.supported) return Future<void>.value();
+    if (_initialized) {
+      if (_ad == null) unawaited(_load());
+      return Future<void>.value();
+    }
     return _initializing ??= _initialize().whenComplete(() {
       _initializing = null;
     });
+  }
+
+  /// Called when the app returns to the foreground. A load started while the
+  /// screen was off often fails with no Javascript engine, so try again.
+  void onResume() {
+    _foreground = true;
+    if (!AdIds.supported) return;
+    _retries = 0;
+    _retry?.cancel();
+    _retry = null;
+    if (_initialized) {
+      if (_ad == null) unawaited(_load());
+    } else {
+      unawaited(initialize());
+    }
+  }
+
+  void onPause() {
+    _foreground = false;
+    _retry?.cancel();
+    _retry = null;
   }
 
   Future<void> _initialize() async {
@@ -26,6 +63,8 @@ class RewardedPowerAds extends ChangeNotifier {
       if (!await IosAdConsent.instance.adsAllowed()) return;
       await MobileAds.instance.initialize();
       _initialized = true;
+      // Give WebView a moment to come up before the first request.
+      await Future<void>.delayed(const Duration(milliseconds: 400));
       await _load();
     } catch (error) {
       debugPrint('Rewarded ads initialization failed: $error');
@@ -33,11 +72,20 @@ class RewardedPowerAds extends ChangeNotifier {
     }
   }
 
-  bool get isReady => _ad != null;
+  void _setLoading(bool value) {
+    if (_loading == value) return;
+    _loading = value;
+    notifyListeners();
+  }
 
   void _keep(RewardedAd? ad) {
     final wasReady = _ad != null;
     _ad = ad;
+    if (ad != null) {
+      _retries = 0;
+      _retry?.cancel();
+      _retry = null;
+    }
     if (wasReady != (ad != null)) notifyListeners();
   }
 
@@ -74,45 +122,63 @@ class RewardedPowerAds extends ChangeNotifier {
     return earned.future;
   }
 
-  var _retries = 0;
-
-  Future<RewardedAd?> _load() async {
-    if (!_initialized) return null;
-    if (!await IosAdConsent.instance.adsAllowed()) {
-      return null;
-    }
-    final done = Completer<RewardedAd?>();
-    await RewardedAd.load(
-      adUnitId: AdIds.rewardedUnitId,
-      request: const AdRequest(),
-      rewardedAdLoadCallback: RewardedAdLoadCallback(
-        onAdLoaded: (ad) {
-          _keep(ad);
-          _retries = 0;
-          if (!done.isCompleted) done.complete(ad);
-        },
-        onAdFailedToLoad: (error) {
-          _keep(null);
-          debugPrint('Rewarded ad failed to load: ${error.message}');
-          if (!done.isCompleted) done.complete(null);
-          _retryLater();
-        },
-      ),
-    );
-    return done.future.timeout(
-      const Duration(seconds: 12),
-      onTimeout: () {
-        _retryLater();
-        return null;
-      },
-    );
+  Future<RewardedAd?> _load() {
+    if (_ad != null) return Future<RewardedAd?>.value(_ad);
+    final current = _inFlight;
+    if (current != null) return current;
+    final run = _loadNew();
+    _inFlight = run;
+    return run.whenComplete(() {
+      if (identical(_inFlight, run)) _inFlight = null;
+    });
   }
 
-  void _retryLater() {
-    if (_retries >= 4 || _ad != null) return;
+  Future<RewardedAd?> _loadNew() async {
+    if (!_initialized || !_foreground) return null;
+    if (!await IosAdConsent.instance.adsAllowed()) return null;
+    _setLoading(true);
+    final done = Completer<RewardedAd?>();
+    unawaited(
+      RewardedAd.load(
+        adUnitId: AdIds.rewardedUnitId,
+        request: const AdRequest(),
+        rewardedAdLoadCallback: RewardedAdLoadCallback(
+          onAdLoaded: (ad) {
+            _keep(ad);
+            if (!done.isCompleted) done.complete(ad);
+          },
+          onAdFailedToLoad: (error) {
+            debugPrint('Rewarded ad failed to load: ${error.message}');
+            _keep(null);
+            if (!done.isCompleted) done.complete(null);
+          },
+        ),
+      ).catchError((Object error) {
+        debugPrint('Rewarded ad failed to load: $error');
+        if (!done.isCompleted) done.complete(null);
+      }),
+    );
+    final ad = await done.future.timeout(
+      const Duration(seconds: 12),
+      onTimeout: () => null,
+    );
+    _setLoading(false);
+    if (ad == null) _scheduleRetry();
+    return ad;
+  }
+
+  void _scheduleRetry() {
+    if (!_initialized || !_foreground || _ad != null || _retry != null) return;
     _retries++;
-    Future<void>.delayed(const Duration(seconds: 6), () {
-      if (_ad == null && _initialized) unawaited(_load());
+    final seconds = switch (_retries) {
+      1 => 2,
+      2 => 4,
+      3 => 8,
+      _ => 15,
+    };
+    _retry = Timer(Duration(seconds: seconds), () {
+      _retry = null;
+      if (_ad == null && _initialized && _foreground) unawaited(_load());
     });
   }
 }

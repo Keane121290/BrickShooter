@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../ads/rewarded_ads.dart';
 import '../game/my_game.dart';
 import '../game/player_profile.dart';
 import '../purchases/emerald_shop.dart';
@@ -111,7 +112,10 @@ class _MenuOverlayState extends State<MenuOverlay> {
                 padding: const EdgeInsets.fromLTRB(20, 12, 0, 0),
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    final bottomGap = math.max(16.0, constraints.maxHeight * 0.04);
+                    final bottomGap = math.max(
+                      16.0,
+                      constraints.maxHeight * 0.04,
+                    );
                     return Column(
                       children: [
                         Expanded(
@@ -168,8 +172,7 @@ class _MenuOverlayState extends State<MenuOverlay> {
                                                   profile.toggleVibration();
                                                   if (profile
                                                       .vibrationEnabled) {
-                                                    HapticFeedback
-                                                        .mediumImpact();
+                                                    HapticFeedback.mediumImpact();
                                                   }
                                                 },
                                               ),
@@ -803,23 +806,37 @@ class _GameOverCard extends StatelessWidget {
                   const _NewBestChip(),
                 ],
                 const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    _EmeraldChip(
-                      count: emeralds,
-                      label: 'THIS ROUND',
-                      labelBelow: true,
+                if (emeralds >= 1)
+                  SizedBox(
+                    height: 86,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: _EmeraldChip(
+                            count: emeralds,
+                            label: 'THIS ROUND',
+                            labelBelow: true,
+                            expand: true,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _EmeraldOfferBox(
+                            total: offerTotal,
+                            enabled: emeraldBoostEnabled,
+                            onPressed: onEmeraldBoost,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 10),
-                    _EmeraldOfferBox(
-                      total: offerTotal,
-                      enabled: emeraldBoostEnabled,
-                      onPressed: onEmeraldBoost,
-                    ),
-                  ],
-                ),
+                  )
+                else
+                  _EmeraldChip(
+                    count: emeralds,
+                    label: 'THIS ROUND',
+                    labelBelow: true,
+                  ),
                 const SizedBox(height: 16),
                 Row(
                   children: [
@@ -1199,6 +1216,7 @@ class _EmeraldChip extends StatelessWidget {
   final bool showLabel;
   final bool labelBelow;
   final bool showCart;
+  final bool expand;
   final VoidCallback? onTap;
   const _EmeraldChip({
     super.key,
@@ -1207,6 +1225,7 @@ class _EmeraldChip extends StatelessWidget {
     this.showLabel = true,
     this.labelBelow = false,
     this.showCart = false,
+    this.expand = false,
     this.onTap,
   });
 
@@ -1217,12 +1236,15 @@ class _EmeraldChip extends StatelessWidget {
     final gap = big ? 12.0 : 8.0;
     final font = big ? 36.0 : 18.0;
     final stacked = labelBelow || showCart;
-    return Material(
+    final chip = Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(stacked ? 22 : 999),
         child: Container(
+          alignment: expand ? Alignment.center : null,
+          width: expand ? double.infinity : null,
+          height: expand ? double.infinity : null,
           padding: EdgeInsets.symmetric(
             horizontal: big ? 22 : 14,
             vertical: stacked ? 12 : (big ? 16 : 8),
@@ -1286,6 +1308,8 @@ class _EmeraldChip extends StatelessWidget {
         ),
       ),
     );
+    if (expand) return SizedBox.expand(child: chip);
+    return chip;
   }
 }
 
@@ -1326,64 +1350,77 @@ class _EmeraldOfferBoxState extends State<_EmeraldOfferBox>
   @override
   Widget build(BuildContext context) {
     final enabled = widget.enabled;
-    final border = enabled ? const Color(0xFFFF2D3A) : const Color(0xFF3A4A54);
-    final number = enabled ? const Color(0xFFFF8A93) : const Color(0xFF6A7C88);
-    final label = enabled ? const Color(0xFFFFB4BA) : const Color(0xFF6A7C88);
-    final box = Material(
-      color: Colors.transparent,
-      child: InkWell(
-        key: const Key('gameover-emerald-x6'),
-        onTap: enabled ? widget.onPressed : null,
-        borderRadius: BorderRadius.circular(22),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: enabled ? const Color(0x33FF2D3A) : const Color(0x33243038),
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: border, width: enabled ? 2 : 1),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.smart_display_outlined, color: number, size: 18),
-                  const SizedBox(width: 6),
-                  _Gem(size: 12),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${widget.total}',
-                    style: TextStyle(
-                      color: number,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
+    final border = enabled ? const Color(0xFF3DDC97) : const Color(0xFF3A4A54);
+    final number = enabled ? const Color(0xFFB6FFE0) : const Color(0xFF6A7C88);
+    final label = enabled ? const Color(0xFF3DDC97) : const Color(0xFF6A7C88);
+    final box = SizedBox.expand(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          key: const Key('gameover-emerald-x6'),
+          onTap: enabled ? widget.onPressed : null,
+          borderRadius: BorderRadius.circular(22),
+          child: Container(
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: enabled
+                  ? const Color(0x333DDC97)
+                  : const Color(0x33243038),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: border, width: enabled ? 2 : 1),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _AdMark(size: 32, color: number),
+                const SizedBox(width: 10),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'x6',
+                      style: TextStyle(
+                        color: label,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.4,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'x6',
-                style: TextStyle(
-                  color: label,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.1,
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const _Gem(size: 12),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${widget.total}',
+                          style: TextStyle(
+                            color: number,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
     if (!enabled) return box;
-    final scale = Tween<double>(begin: 1, end: 1.06).animate(
-      CurvedAnimation(parent: _pulse, curve: Curves.easeInOut),
-    );
+    final scale = Tween<double>(
+      begin: 1,
+      end: 1.06,
+    ).animate(CurvedAnimation(parent: _pulse, curve: Curves.easeInOut));
     return AnimatedBuilder(
       animation: scale,
-      builder: (context, child) => Transform.scale(scale: scale.value, child: child),
+      builder: (context, child) =>
+          Transform.scale(scale: scale.value, child: child),
       child: box,
     );
   }
@@ -1408,6 +1445,70 @@ class _Gem extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Filmklapper med play-symbol. Brukes overalt en reklame tilbys.
+class _AdMark extends StatelessWidget {
+  final double size;
+  final Color color;
+  const _AdMark({required this.size, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(size: Size.square(size), painter: _AdMarkPainter(color));
+  }
+}
+
+class _AdMarkPainter extends CustomPainter {
+  final Color color;
+  const _AdMarkPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = (w * 0.075).clamp(1.2, 2.6)
+      ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round;
+    final fill = Paint()..color = color;
+
+    final clapper = RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * 0.08, h * 0.06, w * 0.84, h * 0.28),
+      Radius.circular(w * 0.07),
+    );
+    canvas.drawRRect(clapper, stroke);
+    canvas.save();
+    canvas.clipRRect(clapper.deflate(stroke.strokeWidth));
+    for (var i = 0; i < 3; i++) {
+      final x = w * (0.18 + i * 0.26);
+      canvas.drawLine(
+        Offset(x, h * 0.04),
+        Offset(x + w * 0.14, h * 0.36),
+        stroke,
+      );
+    }
+    canvas.restore();
+
+    final board = RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * 0.08, h * 0.38, w * 0.84, h * 0.56),
+      Radius.circular(w * 0.08),
+    );
+    canvas.drawRRect(board, stroke);
+
+    final play = Path()
+      ..moveTo(w * 0.40, h * 0.50)
+      ..lineTo(w * 0.66, h * 0.66)
+      ..lineTo(w * 0.40, h * 0.82)
+      ..close();
+    canvas.drawPath(play, fill);
+  }
+
+  @override
+  bool shouldRepaint(covariant _AdMarkPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class _PowerShelf extends StatelessWidget {
@@ -1832,11 +1933,14 @@ class _PowerOfferDialogState extends State<_PowerOfferDialog> {
       setState(() => _note = 'Ad not ready. Try again.');
       return;
     }
-    widget.game.profile.grant(widget.kind, 5);
+    widget.game.profile.grant(widget.kind, RewardedPowerAds.rewardCount);
     if (!mounted) return;
     await showDialog<void>(
       context: context,
-      builder: (context) => _RewardDialog(kind: widget.kind, amount: 5),
+      builder: (context) => _RewardDialog(
+        kind: widget.kind,
+        amount: RewardedPowerAds.rewardCount,
+      ),
     );
   }
 
@@ -1846,225 +1950,377 @@ class _PowerOfferDialogState extends State<_PowerOfferDialog> {
     final owned = widget.game.profile.countOf(widget.kind);
     final emeralds = widget.game.profile.emeralds;
     final canBuy = emeralds >= cost;
-    final adReady = widget.game.rewardedAds.isReady && !_busy;
+    final ads = widget.game.rewardedAds;
+    final adReady = ads.isReady && !_busy;
+    final adLoading = !ads.isReady && (ads.isLoading || _busy);
     return _ArcadeDialog(
       accent: _color,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Stack(
         children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: _color.withValues(alpha: 0.2),
-              border: Border.all(color: _color, width: 2),
-            ),
-            child: Center(
-              child: _PowerMark(kind: widget.kind, color: _color, size: 36),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            _title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _detail,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Color(0xFFC5D7E2), height: 1.3),
-          ),
-          const SizedBox(height: 14),
-          Align(
-            child: SizedBox(
-              width: 220,
-              child: _InfoPill(label: 'OWNED', value: '$owned'),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'You have $emeralds emeralds',
-            style: const TextStyle(
-              color: Color(0xFFFFB4BA),
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
+          Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: SizedBox(
-                  height: 52,
-                  child: ElevatedButton(
-                    key: const Key('power-buy'),
-                    onPressed: !canBuy || _busy
-                        ? null
-                        : () {
-                            widget.game.profile.buyWithEmeralds(widget.kind);
-                          },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFFF6E4),
-                      foregroundColor: const Color(0xFF2A241C),
-                      disabledBackgroundColor: const Color(0xFFB42332),
-                      disabledForegroundColor: Colors.white,
-                      elevation: canBuy ? 5 : 0,
-                      shadowColor: const Color(0x66FF2D3A),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(22),
-                        side: BorderSide(
-                          color: canBuy
-                              ? const Color(0xFFFF8A93)
-                              : const Color(0xFF7A1822),
-                          width: 1.6,
-                        ),
-                      ),
-                    ),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Add 1',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: canBuy
-                                  ? const Color(0xFF2A241C)
-                                  : Colors.white,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '$cost',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFFFF2D3A),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          const _Gem(size: 13),
-                        ],
-                      ),
-                    ),
-                  ),
+              const SizedBox(height: 8),
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _color.withValues(alpha: 0.2),
+                  border: Border.all(color: _color, width: 2),
+                ),
+                child: Center(
+                  child: _PowerMark(kind: widget.kind, color: _color, size: 36),
                 ),
               ),
-              if (!canBuy) ...[
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 48,
-                  height: 52,
-                  child: Tooltip(
-                    message: 'Emeralds',
-                    child: ElevatedButton(
-                      key: const Key('power-emerald-cart'),
-                      onPressed: _openEmeralds,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1B2836),
-                        foregroundColor: const Color(0xFFFF8A93),
-                        elevation: 0,
-                        padding: EdgeInsets.zero,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18),
-                          side: const BorderSide(
-                            color: Color(0xFFFF2D3A),
-                            width: 1.4,
-                          ),
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.shopping_cart,
-                        semanticLabel: 'Open emeralds',
-                      ),
+              const SizedBox(height: 12),
+              Text(
+                _title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _detail,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Color(0xFFC5D7E2), height: 1.3),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'You have $owned $_title',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    '1 more',
+                    style: TextStyle(
+                      color: Color(0xFFC5D7E2),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '$cost',
+                    style: const TextStyle(
+                      color: Color(0xFFFF8A93),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const _Gem(size: 14),
+                ],
+              ),
+              const SizedBox(height: 14),
+              if (canBuy)
+                _PowerBuyRow(
+                  cost: cost,
+                  busy: _busy,
+                  adReady: adReady,
+                  adLoading: adLoading,
+                  reward: RewardedPowerAds.rewardCount,
+                  onBuy: () => widget.game.profile.buyWithEmeralds(widget.kind),
+                  onWatchAd: _watchAd,
+                )
+              else
+                _PowerShortRow(
+                  adReady: adReady,
+                  adLoading: adLoading,
+                  reward: RewardedPowerAds.rewardCount,
+                  onGetMore: _openEmeralds,
+                  onWatchAd: _watchAd,
+                ),
+              if (_note != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _note!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFFFFB4BA),
+                    fontSize: 12,
                   ),
                 ),
               ],
-              const SizedBox(width: 8),
-              Expanded(
-                child: SizedBox(
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: adReady ? _watchAd : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF123246),
-                      foregroundColor: const Color(0xFF8BE9FF),
-                      disabledBackgroundColor: const Color(0xFF243038),
-                      disabledForegroundColor: const Color(0xFF6A7C88),
-                      elevation: adReady ? 5 : 0,
-                      shadowColor: const Color(0x668BE9FF),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(22),
-                        side: BorderSide(
-                          color: adReady
-                              ? const Color(0xFF8BE9FF)
-                              : const Color(0xFF3A4A54),
-                          width: 1.6,
-                        ),
-                      ),
+              const SizedBox(height: 10),
+              Center(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFC5D7E2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 6,
                     ),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            adReady ? 'Add 5' : 'Loading…',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          const Icon(Icons.smart_display_outlined, size: 22),
-                        ],
-                      ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    side: const BorderSide(color: Color(0xFF9BB4C2)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
+                  ),
+                  child: const Text(
+                    'Close',
+                    style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
               ),
             ],
           ),
-          if (_note != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              _note!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(0xFFFFB4BA), fontSize: 12),
-            ),
-          ],
-          const SizedBox(height: 10),
-          Center(
-            child: OutlinedButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFC5D7E2),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 6,
+          Positioned(
+            top: 0,
+            left: 0,
+            child: Row(
+              key: const Key('power-emerald-balance'),
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const _Gem(size: 14),
+                const SizedBox(width: 6),
+                Text(
+                  '$emeralds',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                side: const BorderSide(color: Color(0xFF9BB4C2)),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text(
-                'Close',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PowerBuyRow extends StatelessWidget {
+  final int cost;
+  final bool busy;
+  final bool adReady;
+  final bool adLoading;
+  final int reward;
+  final VoidCallback onBuy;
+  final VoidCallback onWatchAd;
+
+  const _PowerBuyRow({
+    required this.cost,
+    required this.busy,
+    required this.adReady,
+    required this.adLoading,
+    required this.reward,
+    required this.onBuy,
+    required this.onWatchAd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: 52,
+            child: ElevatedButton(
+              key: const Key('power-buy'),
+              onPressed: busy ? null : onBuy,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFFF6E4),
+                foregroundColor: const Color(0xFF2A241C),
+                disabledBackgroundColor: const Color(0xFF243038),
+                disabledForegroundColor: const Color(0xFF6A7C88),
+                elevation: busy ? 0 : 5,
+                shadowColor: const Color(0x66FF2D3A),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(22),
+                  side: const BorderSide(color: Color(0xFFFF8A93), width: 1.6),
+                ),
+              ),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Add 1',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF2A241C),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '$cost',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFFFF2D3A),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const _Gem(size: 13),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _WatchAdButton(
+            adReady: adReady,
+            loading: adLoading,
+            reward: reward,
+            onPressed: onWatchAd,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PowerShortRow extends StatelessWidget {
+  final bool adReady;
+  final bool adLoading;
+  final int reward;
+  final VoidCallback onGetMore;
+  final VoidCallback onWatchAd;
+
+  const _PowerShortRow({
+    required this.adReady,
+    required this.adLoading,
+    required this.reward,
+    required this.onGetMore,
+    required this.onWatchAd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: 52,
+            child: ElevatedButton(
+              key: const Key('power-get-more'),
+              onPressed: onGetMore,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFFF6E4),
+                foregroundColor: const Color(0xFF2A241C),
+                elevation: 5,
+                shadowColor: const Color(0x66FF2D3A),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(22),
+                  side: const BorderSide(color: Color(0xFFFF8A93), width: 1.6),
+                ),
+              ),
+              child: const FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  'Get more',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 8),
+          child: Text(
+            'Or',
+            style: TextStyle(
+              color: Color(0xFFC5D7E2),
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        Expanded(
+          child: _WatchAdButton(
+            adReady: adReady,
+            loading: adLoading,
+            reward: reward,
+            onPressed: onWatchAd,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _WatchAdButton extends StatelessWidget {
+  final bool adReady;
+  final bool loading;
+  final int reward;
+  final VoidCallback onPressed;
+
+  const _WatchAdButton({
+    required this.adReady,
+    required this.loading,
+    required this.reward,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final active = adReady || !loading;
+    final mark = active ? const Color(0xFF8BE9FF) : const Color(0xFF6A7C88);
+    return SizedBox(
+      height: 52,
+      child: ElevatedButton(
+        key: const Key('power-watch-ad'),
+        onPressed: active ? onPressed : null,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF123246),
+          foregroundColor: const Color(0xFF8BE9FF),
+          disabledBackgroundColor: const Color(0xFF243038),
+          disabledForegroundColor: const Color(0xFF6A7C88),
+          elevation: active ? 5 : 0,
+          shadowColor: const Color(0x668BE9FF),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+            side: BorderSide(
+              color: active ? const Color(0xFF8BE9FF) : const Color(0xFF3A4A54),
+              width: 1.6,
+            ),
+          ),
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                loading ? 'Loading…' : 'Watch Ad',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '+$reward',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(width: 6),
+              _AdMark(size: 22, color: mark),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -2316,10 +2572,8 @@ class _PulseCtaState extends State<_PulseCta>
   @override
   void initState() {
     super.initState();
-    _pulse = AnimationController(
-      vsync: this,
-      duration: widget.pulse,
-    )..repeat(reverse: true);
+    _pulse = AnimationController(vsync: this, duration: widget.pulse)
+      ..repeat(reverse: true);
   }
 
   @override

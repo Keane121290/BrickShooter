@@ -308,18 +308,18 @@ class MyGame extends FlameGame with TapCallbacks {
             phase == GamePhase.tutorialHold ||
             phase == GamePhase.playing ||
             phase == GamePhase.paused,
-        explained: () =>
-            phase == GamePhase.paused ||
-            (kind == PowerUp.extraTime &&
-                (phase == GamePhase.tutorialDrop ||
-                    phase == GamePhase.tutorialHold)),
+        explained: () {
+          if (_tutorialLimitsPowers) return kind == PowerUp.extraTime;
+          return phase == GamePhase.paused;
+        },
         caption: caption,
-        urgency: () => _powerUrgency(kind),
+        urgency: () {
+          if (_tutorialLimitsPowers && kind != PowerUp.extraTime) return 0;
+          return _powerUrgency(kind);
+        },
         usable: () {
-          final tutorial =
-              phase == GamePhase.tutorialDrop || phase == GamePhase.tutorialHold;
-          if (!tutorial) return true;
-          return kind == PowerUp.extraTime;
+          if (_tutorialLimitsPowers) return kind == PowerUp.extraTime;
+          return true;
         },
         onPressed: () => _usePower(kind),
       );
@@ -597,12 +597,14 @@ class MyGame extends FlameGame with TapCallbacks {
       _startAnimationTime += dt;
     }
 
-    // Oppdater timer kun når spillet kjører (playing fase) og ikke er pauset
+    // Klokken tikker bare mens runden spilles. Ved 0 stoppes spillet.
     if (phase == GamePhase.playing && _timerDisplay != null) {
       _timeRemaining -= dt;
-      if (_timeRemaining < 0) {
+      if (_timeRemaining <= 0) {
         _timeRemaining = 0;
-        // Timer har gått ut - kan legge til game over logikk her hvis ønskelig
+        _timerDisplay!.timeRemaining = _timeRemaining;
+        gameOver();
+        return;
       }
       _timerDisplay!.timeRemaining = _timeRemaining;
     }
@@ -706,7 +708,15 @@ class MyGame extends FlameGame with TapCallbacks {
     );
   }
 
+  bool get _tutorialLimitsPowers =>
+      phase == GamePhase.tutorialDrop ||
+      phase == GamePhase.tutorialHold ||
+      (phase == GamePhase.paused &&
+          (_pausedFrom == GamePhase.tutorialDrop ||
+              _pausedFrom == GamePhase.tutorialHold));
+
   void _usePower(PowerUp kind) {
+    if (_tutorialLimitsPowers && kind != PowerUp.extraTime) return;
     switch (kind) {
       case PowerUp.extraTime:
         useExtraTime();
@@ -758,6 +768,7 @@ class MyGame extends FlameGame with TapCallbacks {
   }
 
   void useSlowDown() {
+    if (_tutorialLimitsPowers) return;
     if (phase != GamePhase.playing && phase != GamePhase.paused) return;
     if (!profile.tryUse(PowerUp.slowDown)) return;
     difficulty.slowByFraction(1 - GameConfig.slowDownFactor);
@@ -772,6 +783,7 @@ class MyGame extends FlameGame with TapCallbacks {
   }
 
   void usePanic() {
+    if (_tutorialLimitsPowers) return;
     if (phase != GamePhase.playing && phase != GamePhase.paused) return;
     if (!profile.tryUse(PowerUp.panic)) return;
     final cleared = rowController.clearVisibleRows(

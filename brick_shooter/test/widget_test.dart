@@ -72,6 +72,7 @@ void main() {
     expect(find.text('Play again'), findsOneWidget);
     expect(find.text('THIS ROUND'), findsOneWidget);
     expect(find.textContaining('EMERALDS'), findsNothing);
+    expect(find.byKey(const Key('gameover-emerald-x6')), findsNothing);
   });
 
   testWidgets('daily reward lists the three power-ups', (tester) async {
@@ -91,50 +92,46 @@ void main() {
     expect(find.text('Nice!'), findsOneWidget);
   });
 
-  testWidgets(
-    'short on emeralds keeps buy visible and opens the shop from the cart',
-    (tester) async {
-      final profile = PlayerProfile()..emeralds = 0;
-      await tester.pumpWidget(
-        MaterialApp(home: MenuOverlay(game: _game(profile))),
-      );
-      await tester.pump();
+  testWidgets('short on emeralds offers get more or a rewarded ad', (
+    tester,
+  ) async {
+    final profile = PlayerProfile()..emeralds = 0;
+    await tester.pumpWidget(
+      MaterialApp(home: MenuOverlay(game: _game(profile))),
+    );
+    await tester.pump();
 
-      await tester.tap(find.text('Extra time'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.text('Extra time'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
-      expect(find.text('Add 1'), findsOneWidget);
-      expect(find.text('You have 0 emeralds'), findsOneWidget);
-      final buy = tester.widget<ElevatedButton>(
-        find.byKey(const Key('power-buy')),
-      );
-      expect(buy.onPressed, isNull);
-      expect(
-        buy.style?.backgroundColor?.resolve({WidgetState.disabled}),
-        const Color(0xFFB42332),
-      );
-      expect(
-        buy.style?.foregroundColor?.resolve({WidgetState.disabled}),
-        Colors.white,
-      );
-      expect(find.byIcon(Icons.shopping_cart), findsOneWidget);
+    expect(find.text('Get more'), findsOneWidget);
+    expect(find.text('Or'), findsOneWidget);
+    expect(find.text('Watch Ad'), findsOneWidget);
+    expect(find.text('Add 1'), findsNothing);
+    expect(find.text('You have 0 emeralds'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('power-emerald-balance')),
+        matching: find.text('0'),
+      ),
+      findsOneWidget,
+    );
 
-      await tester.tap(find.byKey(const Key('power-emerald-cart')));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.byKey(const Key('power-get-more')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
-      expect(find.text('Emeralds'), findsOneWidget);
-      expect(find.text('Pouch'), findsOneWidget);
-      expect(find.text('Chest'), findsOneWidget);
-      expect(find.text('Vault'), findsOneWidget);
-      expect(find.text('30 emeralds'), findsOneWidget);
-      expect(find.text('80 emeralds'), findsOneWidget);
-      expect(find.text('200 emeralds'), findsOneWidget);
-    },
-  );
+    expect(find.text('Emeralds'), findsOneWidget);
+    expect(find.text('Pouch'), findsOneWidget);
+    expect(find.text('Chest'), findsOneWidget);
+    expect(find.text('Vault'), findsOneWidget);
+    expect(find.text('30 emeralds'), findsOneWidget);
+    expect(find.text('80 emeralds'), findsOneWidget);
+    expect(find.text('200 emeralds'), findsOneWidget);
+  });
 
-  testWidgets('panic still offers the cart when the balance is short of 12', (
+  testWidgets('panic offers get more when the balance is short of 12', (
     tester,
   ) async {
     final profile = PlayerProfile()..emeralds = 10;
@@ -147,8 +144,16 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('Add 1'), findsOneWidget);
-    expect(find.byKey(const Key('power-emerald-cart')), findsOneWidget);
+    expect(find.text('Get more'), findsOneWidget);
+    expect(find.text('Watch Ad'), findsOneWidget);
+    expect(find.text('Add 1'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('power-emerald-balance')),
+        matching: find.text('10'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('buying a power-up spends emeralds and hides the cart', (
@@ -166,7 +171,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.byKey(const Key('power-emerald-cart')), findsNothing);
+    expect(find.text('Get more'), findsNothing);
+    expect(find.byKey(const Key('power-buy')), findsOneWidget);
     await tester.tap(find.byKey(const Key('power-buy')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
