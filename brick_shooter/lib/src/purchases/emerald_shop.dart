@@ -33,7 +33,17 @@ class EmeraldShop {
   StreamSubscription<List<PurchaseDetails>>? _sub;
   var available = false;
 
+  /// Play billing plugins only register on mobile. Touching the platform
+  /// instance on web or desktop throws before the menu can draw.
+  static bool get _billingSupported {
+    if (kIsWeb) return false;
+    return defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS;
+  }
+
   Future<void> start() async {
+    if (!_billingSupported) return;
     _sub ??= _iap.purchaseStream.listen(_onPurchases, onError: (Object error) {
       debugPrint('Emerald purchase stream failed: $error');
     });
