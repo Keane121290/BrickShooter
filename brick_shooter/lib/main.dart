@@ -24,15 +24,17 @@ Future<void> main() async {
       debugShowCheckedModeBanner: false,
       home: _DailyRewardWatcher(
         profile: profile,
+        onResume: game.rewardedAds.onResume,
+        onPause: game.rewardedAds.onPause,
         child: GameWidget(
           game: game,
           overlayBuilderMap: {
             MenuOverlay.id: (context, g) => MenuOverlay(game: g as MyGame),
             PauseOverlay.id: (context, g) => PauseOverlay(game: g as MyGame),
-            GameOverOverlay.id: (context, g) => GameOverOverlay(game: g as MyGame),
-          },
             GameOverOverlay.id: (context, g) =>
                 GameOverOverlay(game: g as MyGame),
+          },
+          initialActiveOverlays: const [MenuOverlay.id],
         ),
       ),
     ),
@@ -45,10 +47,17 @@ Future<void> main() async {
 }
 
 class _DailyRewardWatcher extends StatefulWidget {
-  const _DailyRewardWatcher({required this.profile, required this.child});
+  const _DailyRewardWatcher({
+    required this.profile,
+    required this.child,
+    this.onResume,
+    this.onPause,
+  });
 
   final PlayerProfile profile;
   final Widget child;
+  final VoidCallback? onResume;
+  final VoidCallback? onPause;
 
   @override
   State<_DailyRewardWatcher> createState() => _DailyRewardWatcherState();
