@@ -1,0 +1,51 @@
+# Codemagic: https://docs.codemagic.io/yaml-quick-start/building-a-flutter-app/
+# Flutter-prosjektet ligger i brick_shooter/. Etter push: koble repoet,
+# last opp signing, og sjekk referansene — se CODEMAGIC.md.
+
+workflows:
+  ios-release:
+    name: iOS TestFlight
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    working_directory: brick_shooter
+    integrations:
+      # Må matche navnet på App Store Connect-integrasjonen i Codemagic UI.
+      app_store_connect: Codemagic
+    environment:
+      flutter: stable
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.keane1212.brickTapper
+      vars:
+        BUNDLE_ID: com.keane1212.brickTapper
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+        - pattern: master
+          include: true
+    scripts:
+      - name: Flutter packages
+        script: flutter pub get
+      - name: Run tests
+        script: flutter test
+      - name: Install CocoaPods
+        script: |
+          cd ios
+          pod install --repo-update
+      - name: Set up Xcode code signing
+        script: xcode-project use-profiles
+      - name: Build IPA
+        script: |
+          flutter build ipa --release \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - brick_shooter/build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        submit_to_app_store: false
