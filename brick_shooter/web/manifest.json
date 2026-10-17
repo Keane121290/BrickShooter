@@ -1,6 +1,6 @@
 {
-    "name": "brick_shooter",
-    "short_name": "brick_shooter",
+    "name": "Brick Tapper",
+    "short_name": "Brick Tapper",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

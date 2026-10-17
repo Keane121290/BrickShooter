@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../game/my_game.dart';
 import '../game/player_profile.dart';
-import '../game/game_sounds.dart';
 import '../purchases/emerald_shop.dart';
 import 'power_mark.dart';
 
@@ -129,62 +128,56 @@ class _MenuOverlayState extends State<MenuOverlay> {
                                     child: _BrickLogo(),
                                   ),
                                   const SizedBox(height: 18),
-                                  Stack(
-                                    alignment: Alignment.center,
-                                    children: [
-                                      Padding(
-                                        padding: const EdgeInsets.only(right: 20),
-                                        child: _AttentionPulse(
-                                          child: _EmeraldChip(
-                                            key: const Key('menu-emeralds'),
-                                            count: profile.emeralds,
-                                            showLabel: false,
-                                            showCart: true,
-                                            onTap: _openEmeralds,
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: Stack(
+                                      alignment: Alignment.center,
+                                      clipBehavior: Clip.none,
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            right: 20,
+                                          ),
+                                          child: _AttentionPulse(
+                                            child: _EmeraldChip(
+                                              key: const Key('menu-emeralds'),
+                                              count: profile.emeralds,
+                                              showLabel: false,
+                                              showCart: true,
+                                              onTap: _openEmeralds,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                      Positioned(
-                                        right: 4,
-                                        top: 0,
-                                        bottom: 0,
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            _IconToggle(
-                                              buttonKey: const Key(
-                                                'menu-vibration',
+                                        Positioned(
+                                          right: 0,
+                                          top: 0,
+                                          bottom: 0,
+                                          child: Column(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              _IconToggle(
+                                                buttonKey: const Key(
+                                                  'menu-vibration',
+                                                ),
+                                                enabled:
+                                                    profile.vibrationEnabled,
+                                                icon: Icons.vibration,
+                                                offIcon: Icons.mobile_off,
+                                                onPressed: () {
+                                                  profile.toggleVibration();
+                                                  if (profile
+                                                      .vibrationEnabled) {
+                                                    HapticFeedback
+                                                        .mediumImpact();
+                                                  }
+                                                },
                                               ),
-                                              enabled: profile.vibrationEnabled,
-                                              icon: Icons.vibration,
-                                              offIcon: Icons.mobile_off,
-                                              onPressed: () {
-                                                profile.toggleVibration();
-                                                if (profile.vibrationEnabled) {
-                                                  HapticFeedback.mediumImpact();
-                                                }
-                                              },
-                                            ),
-                                            const SizedBox(width: 8),
-                                            _IconToggle(
-                                              buttonKey: const Key('menu-sound'),
-                                              enabled: profile.soundEnabled,
-                                              icon: Icons.volume_up_rounded,
-                                              offIcon: Icons.volume_off_rounded,
-                                              onPressed: () {
-                                                profile.toggleSound();
-                                                if (profile.soundEnabled) {
-                                                  widget.game.sounds.play(
-                                                    GameSounds.clear,
-                                                    volume: 0.55,
-                                                  );
-                                                }
-                                              },
-                                            ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                   const SizedBox(height: 18),
                                   Padding(
@@ -674,6 +667,9 @@ class _GameOverOverlayState extends State<GameOverOverlay>
                       : (game.score.newBest ? 1 : 0),
                   multiplier: game.multiplier.getCurrentMultiplier(),
                   emeralds: game.profile.emeraldsThisRound,
+                  offerTotal: _emeraldBoostSpent
+                      ? game.profile.emeraldsThisRound
+                      : game.profile.emeraldsThisRound * 6,
                   emeraldBoostEnabled: canBoost,
                   onEmeraldBoost: _boostEmeralds,
                   onPlayAgain: game.startGame,
@@ -706,6 +702,7 @@ class _GameOverCard extends StatelessWidget {
   final int place;
   final int multiplier;
   final int emeralds;
+  final int offerTotal;
   final bool emeraldBoostEnabled;
   final VoidCallback onEmeraldBoost;
   final VoidCallback onPlayAgain;
@@ -718,6 +715,7 @@ class _GameOverCard extends StatelessWidget {
     required this.place,
     required this.multiplier,
     required this.emeralds,
+    required this.offerTotal,
     required this.emeraldBoostEnabled,
     required this.onEmeraldBoost,
     required this.onPlayAgain,
@@ -805,25 +803,20 @@ class _GameOverCard extends StatelessWidget {
                   const _NewBestChip(),
                 ],
                 const SizedBox(height: 16),
-                Stack(
-                  alignment: Alignment.center,
-                  clipBehavior: Clip.none,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     _EmeraldChip(
                       count: emeralds,
                       label: 'THIS ROUND',
                       labelBelow: true,
                     ),
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      bottom: 0,
-                      child: Center(
-                        child: _EmeraldBoostButton(
-                          enabled: emeraldBoostEnabled,
-                          onPressed: onEmeraldBoost,
-                        ),
-                      ),
+                    const SizedBox(width: 10),
+                    _EmeraldOfferBox(
+                      total: offerTotal,
+                      enabled: emeraldBoostEnabled,
+                      onPressed: onEmeraldBoost,
                     ),
                   ],
                 ),
@@ -1296,42 +1289,102 @@ class _EmeraldChip extends StatelessWidget {
   }
 }
 
-class _EmeraldBoostButton extends StatelessWidget {
+class _EmeraldOfferBox extends StatefulWidget {
+  final int total;
   final bool enabled;
   final VoidCallback onPressed;
 
-  const _EmeraldBoostButton({required this.enabled, required this.onPressed});
+  const _EmeraldOfferBox({
+    required this.total,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  @override
+  State<_EmeraldOfferBox> createState() => _EmeraldOfferBoxState();
+}
+
+class _EmeraldOfferBoxState extends State<_EmeraldOfferBox>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final color = enabled ? const Color(0xFFFF2D3A) : const Color(0xFF3A4A54);
-    return TextButton(
-      key: const Key('gameover-emerald-x6'),
-      onPressed: enabled ? onPressed : null,
-      style: TextButton.styleFrom(
-        foregroundColor: Colors.white,
-        disabledForegroundColor: const Color(0xFF6A7C88),
-        disabledBackgroundColor: const Color(0xFF243038),
-        backgroundColor: const Color(0xFFB42332),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        minimumSize: Size.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(999),
-          side: BorderSide(color: color, width: 1.4),
+    final enabled = widget.enabled;
+    final border = enabled ? const Color(0xFFFF2D3A) : const Color(0xFF3A4A54);
+    final number = enabled ? const Color(0xFFFF8A93) : const Color(0xFF6A7C88);
+    final label = enabled ? const Color(0xFFFFB4BA) : const Color(0xFF6A7C88);
+    final box = Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: const Key('gameover-emerald-x6'),
+        onTap: enabled ? widget.onPressed : null,
+        borderRadius: BorderRadius.circular(22),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: enabled ? const Color(0x33FF2D3A) : const Color(0x33243038),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: border, width: enabled ? 2 : 1),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.smart_display_outlined, color: number, size: 18),
+                  const SizedBox(width: 6),
+                  _Gem(size: 12),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${widget.total}',
+                    style: TextStyle(
+                      color: number,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'x6',
+                style: TextStyle(
+                  color: label,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.1,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.smart_display_outlined, size: 18),
-          SizedBox(width: 4),
-          Text(
-            'x6',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-          ),
-        ],
-      ),
+    );
+    if (!enabled) return box;
+    final scale = Tween<double>(begin: 1, end: 1.06).animate(
+      CurvedAnimation(parent: _pulse, curve: Curves.easeInOut),
+    );
+    return AnimatedBuilder(
+      animation: scale,
+      builder: (context, child) => Transform.scale(scale: scale.value, child: child),
+      child: box,
     );
   }
 }
@@ -1679,7 +1732,7 @@ class _BrickLogo extends StatelessWidget {
             colors: [Color(0xFFFF6EC7), Color(0xFF5FD0FF), Color(0xFF6DFFB0)],
           ).createShader(bounds),
           child: const Text(
-            'BRICK SHOOTER',
+            'BRICK TAPPER',
             style: TextStyle(
               color: Colors.white,
               fontSize: 30,

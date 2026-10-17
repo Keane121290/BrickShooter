@@ -8,7 +8,7 @@
 PRODUCT_NAME = brick_shooter
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.keane1212.brickshotter.brickShooter
+PRODUCT_BUNDLE_IDENTIFIER = com.keane1212.brickTapper
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2025 com.keane1212.brickshotter. All rights reserved.

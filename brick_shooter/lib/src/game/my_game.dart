@@ -38,7 +38,6 @@ import 'components/game_button.dart';
 import 'components/timer_display.dart';
 import 'components/time_pressure.dart';
 import 'components/float_label.dart';
-import 'game_sounds.dart';
 
 // Tutorial components
 import 'components/tutorial/finger_hint.dart';
@@ -47,14 +46,11 @@ import 'components/tutorial/lane_highlight.dart';
 class MyGame extends FlameGame with TapCallbacks {
   MyGame({PlayerProfile? profile, RewardedPowerAds? rewardedAds, this.shop})
     : profile = profile ?? PlayerProfile(),
-      rewardedAds = rewardedAds ?? RewardedPowerAds() {
-    sounds = GameSounds(this.profile);
-  }
+      rewardedAds = rewardedAds ?? RewardedPowerAds();
 
   final PlayerProfile profile;
   final RewardedPowerAds rewardedAds;
   final EmeraldShop? shop;
-  late final GameSounds sounds;
 
   // ========== Game State ==========
   GamePhase phase = GamePhase.menu;
@@ -120,7 +116,6 @@ class MyGame extends FlameGame with TapCallbacks {
       // Hvis loading feiler, fortsett med default verdi (0)
       debugPrint('Warning: Failed to load best score: $e');
     }
-    await sounds.prepare();
 
     final double w = size.x == 0 ? 1080.0 : size.x;
     final double h = size.y == 0 ? 1920.0 : size.y;
@@ -433,7 +428,6 @@ class MyGame extends FlameGame with TapCallbacks {
           );
           if (clearedCount > 0) {
             _addScore(currentMultiplier * clearedCount);
-            sounds.play(GameSounds.clear);
           }
         }
         _laneLocked[lane] = false;
@@ -583,7 +577,6 @@ class MyGame extends FlameGame with TapCallbacks {
     bulletController.setPaused(true);
     _clearTutorialUi();
     score.podiumPlace = profile.submitScore(score.score);
-    sounds.play(GameSounds.over, volume: 0.8);
     _setPhase(GamePhase.gameOver);
   }
 
@@ -661,7 +654,6 @@ class MyGame extends FlameGame with TapCallbacks {
       // Add score for all cleared rows (multiplier × number of rows)
       if (clearedCount > 0) {
         _addScore(currentMultiplier * clearedCount);
-        sounds.play(GameSounds.clear);
       }
 
       rowController.tickCottonCandy(dt);
@@ -785,10 +777,7 @@ class MyGame extends FlameGame with TapCallbacks {
     final cleared = rowController.clearVisibleRows(
       onExplode: (row) => _explodeRow(row),
     );
-    if (cleared > 0) {
-      _feelPanic();
-      sounds.play(GameSounds.clear);
-    }
+    if (cleared > 0) _feelPanic();
   }
 
   void _onRowRemoved(FallingRow row) {
