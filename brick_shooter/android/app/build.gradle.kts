@@ -67,3 +67,10 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // Ads SDK 25.4.0 pulls WorkManager 2.7.0. Release builds shrink with R8,
+    // and that old WorkManager crashes in InitializationProvider before Flutter
+    // starts. 2.11.2 is the version that stays up on Play release builds.
+    implementation("androidx.work:work-runtime:2.11.2")
+}

@@ -28,19 +28,24 @@ class EmeraldShop {
   ];
 
   final PlayerProfile profile;
-  final InAppPurchase _iap = InAppPurchase.instance;
   final Map<String, ProductDetails> products = {};
+  InAppPurchase? _iap;
   StreamSubscription<List<PurchaseDetails>>? _sub;
   var available = false;
 
   Future<void> start() async {
-    _sub ??= _iap.purchaseStream.listen(_onPurchases, onError: (Object error) {
-      debugPrint('Emerald purchase stream failed: $error');
-    });
     try {
-      available = await _iap.isAvailable();
+      final iap = InAppPurchase.instance;
+      _iap = iap;
+      _sub ??= iap.purchaseStream.listen(
+        _onPurchases,
+        onError: (Object error) {
+          debugPrint('Emerald purchase stream failed: $error');
+        },
+      );
+      available = await iap.isAvailable();
       if (!available) return;
-      final response = await _iap.queryProductDetails(
+      final response = await iap.queryProductDetails(
         packs.map((pack) => pack.id).toSet(),
       );
       for (final product in response.productDetails) {
@@ -57,15 +62,18 @@ class EmeraldShop {
   }
 
   Future<bool> buy(EmeraldPack pack) async {
+    final iap = _iap;
     final product = products[pack.id];
-    if (!available || product == null) return false;
-    final started = await _iap.buyConsumable(
+    if (!available || product == null || iap == null) return false;
+    final started = await iap.buyConsumable(
       purchaseParam: PurchaseParam(productDetails: product),
     );
     return started;
   }
 
   Future<void> _onPurchases(List<PurchaseDetails> purchases) async {
+    final iap = _iap;
+    if (iap == null) return;
     final prefs = await SharedPreferences.getInstance();
     final granted = prefs.getStringList('grantedPurchases') ?? <String>[];
     for (final purchase in purchases) {
@@ -83,7 +91,7 @@ class EmeraldShop {
         if (receipt != null) granted.add(receipt);
       }
       if (purchase.pendingCompletePurchase) {
-        await _iap.completePurchase(purchase);
+        await iap.completePurchase(purchase);
       }
     }
     await prefs.setStringList('grantedPurchases', granted);
