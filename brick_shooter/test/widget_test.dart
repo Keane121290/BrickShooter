@@ -107,7 +107,8 @@ void main() {
 
     expect(find.text('Get more'), findsOneWidget);
     expect(find.text('Or'), findsOneWidget);
-    expect(find.text('Watch Ad'), findsOneWidget);
+    expect(find.text('Add 5'), findsOneWidget);
+    expect(find.byKey(const Key('power-ad-mark')), findsOneWidget);
     expect(find.text('Add 1'), findsNothing);
     expect(find.text('You have 0 emeralds'), findsNothing);
     expect(
@@ -145,7 +146,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Get more'), findsOneWidget);
-    expect(find.text('Watch Ad'), findsOneWidget);
+    expect(find.text('Add 5'), findsOneWidget);
+    expect(find.byKey(const Key('power-ad-mark')), findsOneWidget);
     expect(find.text('Add 1'), findsNothing);
     expect(
       find.descendant(
@@ -172,6 +174,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Get more'), findsNothing);
+    expect(find.text('Add 1'), findsOneWidget);
+    expect(find.text('Add 5'), findsOneWidget);
+    expect(find.byKey(const Key('power-ad-mark')), findsOneWidget);
     expect(find.byKey(const Key('power-buy')), findsOneWidget);
     await tester.tap(find.byKey(const Key('power-buy')));
     await tester.pump();

@@ -1451,7 +1451,7 @@ class _Gem extends StatelessWidget {
 class _AdMark extends StatelessWidget {
   final double size;
   final Color color;
-  const _AdMark({required this.size, required this.color});
+  const _AdMark({super.key, required this.size, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -2302,22 +2302,14 @@ class _WatchAdButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                loading ? 'Loading…' : 'Watch Ad',
+                loading ? 'Loading…' : 'Add $reward',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(width: 6),
-              Text(
-                '+$reward',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(width: 6),
-              _AdMark(size: 22, color: mark),
+              const SizedBox(width: 8),
+              _AdMark(key: const Key('power-ad-mark'), size: 18, color: mark),
             ],
           ),
         ),
