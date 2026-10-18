@@ -1,4 +1,5 @@
 import 'package:brick_shooter/src/game/components/multiplier.dart';
+import 'package:brick_shooter/src/game/config.dart';
 import 'package:brick_shooter/src/game/my_game.dart';
 import 'package:brick_shooter/src/game/player_profile.dart';
 import 'package:brick_shooter/src/ui/overlays.dart';
@@ -12,6 +13,49 @@ void main() {
   });
 
   setUp(_phoneSurface);
+
+  test('install day skips the daily reward', () async {
+    SharedPreferences.setMockInitialValues({});
+    final profile = PlayerProfile();
+    await profile.load();
+
+    expect(profile.extraTime, GameConfig.startingPowerUps);
+    expect(profile.slowDown, GameConfig.startingPowerUps);
+    expect(profile.panic, GameConfig.startingPowerUps);
+    expect(profile.pendingDailyNotice, isFalse);
+
+    await profile.claimDailyReward();
+    expect(profile.extraTime, GameConfig.startingPowerUps);
+    expect(profile.pendingDailyNotice, isFalse);
+
+    profile.dailyRewardDay = '2000-01-01';
+    await profile.claimDailyReward();
+    expect(profile.extraTime, GameConfig.startingPowerUps + 1);
+    expect(profile.slowDown, GameConfig.startingPowerUps + 1);
+    expect(profile.panic, GameConfig.startingPowerUps + 1);
+    expect(profile.pendingDailyNotice, isTrue);
+
+    SharedPreferences.setMockInitialValues({});
+  });
+
+  test('an updated profile still receives the daily reward', () async {
+    SharedPreferences.setMockInitialValues({
+      'profileReady': true,
+      'powerExtra': 2,
+      'powerSlow': 2,
+      'powerPanic': 2,
+      'emeralds': 4,
+    });
+    final profile = PlayerProfile();
+    await profile.load();
+
+    expect(profile.extraTime, 3);
+    expect(profile.slowDown, 3);
+    expect(profile.panic, 3);
+    expect(profile.pendingDailyNotice, isTrue);
+
+    SharedPreferences.setMockInitialValues({});
+  });
 
   testWidgets('start and play again gently pulse', (tester) async {
     final game = _game();

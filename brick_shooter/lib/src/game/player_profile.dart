@@ -41,6 +41,9 @@ class PlayerProfile extends ChangeNotifier {
       await prefs.setInt('powerPanic', panic);
       await prefs.setInt('emeralds', emeralds);
       await prefs.setBool('profileReady', true);
+      // The install day counts as already settled, so the first daily set
+      // waits until the next calendar day.
+      await prefs.setString('dailyRewardDay', _todayKey());
     } else {
       extraTime = prefs.getInt('powerExtra') ?? 0;
       slowDown = prefs.getInt('powerSlow') ?? 0;
@@ -66,6 +69,7 @@ class PlayerProfile extends ChangeNotifier {
   }
 
   /// Grants one of each power-up the first time the app is opened on a calendar day.
+  /// The day the profile is created is already stamped, so that day stays quiet.
   Future<void> claimDailyReward() async {
     final today = _todayKey();
     if (_claimingDaily || dailyRewardDay == today) return;
