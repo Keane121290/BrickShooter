@@ -75,17 +75,17 @@ void main() {
     expect(find.byKey(const Key('gameover-emerald-x6')), findsNothing);
   });
 
-  testWidgets('daily reward lists the three power-ups', (tester) async {
-    final profile = PlayerProfile()..pendingDailyNotice = true;
+  testWidgets('weekly reward lists the three power-ups', (tester) async {
+    final profile = PlayerProfile()..pendingWeeklyNotice = true;
     await tester.pumpWidget(
       MaterialApp(home: MenuOverlay(game: _game(profile))),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('Daily reward'), findsOneWidget);
+    expect(find.text('Weekly reward'), findsOneWidget);
     expect(
-      find.text('A fresh set just dropped into your stash.'),
+      find.text('This week\'s set just dropped into your stash.'),
       findsOneWidget,
     );
     expect(find.text('+1'), findsNWidgets(3));
@@ -107,7 +107,9 @@ void main() {
 
     expect(find.text('Get more'), findsOneWidget);
     expect(find.text('Or'), findsOneWidget);
-    expect(find.text('Watch Ad'), findsOneWidget);
+    expect(find.text('Add 3'), findsOneWidget);
+    expect(find.byKey(const Key('power-ad-mark')), findsOneWidget);
+    expect(find.text('10'), findsOneWidget);
     expect(find.text('Add 1'), findsNothing);
     expect(find.text('You have 0 emeralds'), findsNothing);
     expect(
@@ -131,7 +133,7 @@ void main() {
     expect(find.text('200 emeralds'), findsOneWidget);
   });
 
-  testWidgets('panic offers get more when the balance is short of 12', (
+  testWidgets('panic offers get more when the balance is short of 15', (
     tester,
   ) async {
     final profile = PlayerProfile()..emeralds = 10;
@@ -145,7 +147,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Get more'), findsOneWidget);
-    expect(find.text('Watch Ad'), findsOneWidget);
+    expect(find.text('Add 2'), findsOneWidget);
+    expect(find.text('15'), findsOneWidget);
     expect(find.text('Add 1'), findsNothing);
     expect(
       find.descendant(
@@ -160,7 +163,7 @@ void main() {
     tester,
   ) async {
     final profile = PlayerProfile()
-      ..emeralds = 10
+      ..emeralds = 20
       ..extraTime = 2;
     await tester.pumpWidget(
       MaterialApp(home: MenuOverlay(game: _game(profile))),
@@ -178,7 +181,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(profile.extraTime, 3);
-    expect(profile.emeralds, 5);
+    expect(profile.emeralds, 10);
     expect(find.text('Extra time'), findsWidgets);
     expect(find.text('Add 1'), findsOneWidget);
   });

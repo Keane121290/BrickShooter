@@ -4,7 +4,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../ads/rewarded_ads.dart';
+
 import '../game/my_game.dart';
 import '../game/player_profile.dart';
 import '../purchases/emerald_shop.dart';
@@ -20,13 +20,13 @@ class MenuOverlay extends StatefulWidget {
 }
 
 class _MenuOverlayState extends State<MenuOverlay> {
-  var _showingDaily = false;
+  var _showingWeekly = false;
 
   @override
   void initState() {
     super.initState();
     widget.game.profile.addListener(_refresh);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowDaily());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowWeekly());
   }
 
   @override
@@ -37,26 +37,26 @@ class _MenuOverlayState extends State<MenuOverlay> {
 
   void _refresh() {
     if (mounted) setState(() {});
-    _maybeShowDaily();
+    _maybeShowWeekly();
   }
 
-  void _maybeShowDaily() {
+  void _maybeShowWeekly() {
     final profile = widget.game.profile;
-    if (!profile.pendingDailyNotice || _showingDaily || !mounted) return;
-    _showingDaily = true;
-    profile.pendingDailyNotice = false;
+    if (!profile.pendingWeeklyNotice || _showingWeekly || !mounted) return;
+    _showingWeekly = true;
+    profile.pendingWeeklyNotice = false;
     final dialogContext = context;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!dialogContext.mounted) {
-        _showingDaily = false;
+        _showingWeekly = false;
         return;
       }
       await showDialog<void>(
         context: dialogContext,
         barrierColor: const Color(0xAD000000),
-        builder: (context) => const _DailyRewardDialog(),
+        builder: (context) => const _WeeklyRewardDialog(),
       );
-      _showingDaily = false;
+      _showingWeekly = false;
     });
   }
 
@@ -270,8 +270,8 @@ class _IconToggle extends StatelessWidget {
   }
 }
 
-class _DailyRewardDialog extends StatelessWidget {
-  const _DailyRewardDialog();
+class _WeeklyRewardDialog extends StatelessWidget {
+  const _WeeklyRewardDialog();
 
   @override
   Widget build(BuildContext context) {
@@ -283,7 +283,7 @@ class _DailyRewardDialog extends StatelessWidget {
           const _BobbingBricks(),
           const SizedBox(height: 14),
           const Text(
-            'Daily reward',
+            'Weekly reward',
             style: TextStyle(
               color: Colors.white,
               fontSize: 26,
@@ -292,7 +292,7 @@ class _DailyRewardDialog extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           const Text(
-            'A fresh set just dropped into your stash.',
+            'This week\'s set just dropped into your stash.',
             textAlign: TextAlign.center,
             style: TextStyle(color: Color(0xFFC5D7E2), height: 1.35),
           ),
@@ -1119,9 +1119,10 @@ class _TrophyPainter extends CustomPainter {
     final cx = w / 2;
     final cup = Color.lerp(Colors.white, color, 0.72)!;
     final handleColor = Color.lerp(const Color(0xFF8A5A18), color, 0.55)!;
-    final base = HSLColor.fromColor(
-      color,
-    ).withLightness(0.46).withSaturation(0.28).toColor();
+    final base = HSLColor.fromColor(color)
+        .withLightness(0.46)
+        .withSaturation(0.28)
+        .toColor();
     final plaque = Color.lerp(Colors.white, base, 0.42)!;
 
     final handle = Paint()
@@ -1451,7 +1452,7 @@ class _Gem extends StatelessWidget {
 class _AdMark extends StatelessWidget {
   final double size;
   final Color color;
-  const _AdMark({required this.size, required this.color});
+  const _AdMark({super.key, required this.size, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -1933,13 +1934,16 @@ class _PowerOfferDialogState extends State<_PowerOfferDialog> {
       setState(() => _note = 'Ad not ready. Try again.');
       return;
     }
-    widget.game.profile.grant(widget.kind, RewardedPowerAds.rewardCount);
+    widget.game.profile.grant(
+      widget.kind,
+      PlayerProfile.adRewardCount(widget.kind),
+    );
     if (!mounted) return;
     await showDialog<void>(
       context: context,
       builder: (context) => _RewardDialog(
         kind: widget.kind,
-        amount: RewardedPowerAds.rewardCount,
+        amount: PlayerProfile.adRewardCount(widget.kind),
       ),
     );
   }
@@ -2030,7 +2034,7 @@ class _PowerOfferDialogState extends State<_PowerOfferDialog> {
                   busy: _busy,
                   adReady: adReady,
                   adLoading: adLoading,
-                  reward: RewardedPowerAds.rewardCount,
+                  reward: PlayerProfile.adRewardCount(widget.kind),
                   onBuy: () => widget.game.profile.buyWithEmeralds(widget.kind),
                   onWatchAd: _watchAd,
                 )
@@ -2038,7 +2042,7 @@ class _PowerOfferDialogState extends State<_PowerOfferDialog> {
                 _PowerShortRow(
                   adReady: adReady,
                   adLoading: adLoading,
-                  reward: RewardedPowerAds.rewardCount,
+                  reward: PlayerProfile.adRewardCount(widget.kind),
                   onGetMore: _openEmeralds,
                   onWatchAd: _watchAd,
                 ),
@@ -2302,22 +2306,14 @@ class _WatchAdButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                loading ? 'Loading…' : 'Watch Ad',
+                loading ? 'Loading…' : 'Add $reward',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(width: 6),
-              Text(
-                '+$reward',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(width: 6),
-              _AdMark(size: 22, color: mark),
+              const SizedBox(width: 8),
+              _AdMark(key: const Key('power-ad-mark'), size: 18, color: mark),
             ],
           ),
         ),

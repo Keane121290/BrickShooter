@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'config.dart';
+import 'reward_schedule.dart';
 
 enum PowerUp { extraTime, slowDown, panic }
 
@@ -11,11 +13,15 @@ class PlayerProfile extends ChangeNotifier {
   int emeralds = 0;
   int emeraldsThisRound = 0;
   List<int> topScores = [];
-  String? dailyRewardDay;
-  bool pendingDailyNotice = false;
+  DateTime? installedAt;
+  String? claimedRewardPeriod;
+  bool pendingWeeklyNotice = false;
   bool vibrationEnabled = true;
   bool soundEnabled = true;
-  bool _claimingDaily = false;
+  bool _claimingReward = false;
+
+  /// Clock for the weekly reward. Tests pin this; the app uses UTC now.
+  DateTime Function() now = () => DateTime.now().toUtc();
 
   int countOf(PowerUp kind) {
     switch (kind) {
@@ -41,6 +47,8 @@ class PlayerProfile extends ChangeNotifier {
       await prefs.setInt('powerPanic', panic);
       await prefs.setInt('emeralds', emeralds);
       await prefs.setBool('profileReady', true);
+      installedAt = now().toUtc();
+      await prefs.setString('installedAt', installedAt!.toIso8601String());
     } else {
       extraTime = prefs.getInt('powerExtra') ?? 0;
       slowDown = prefs.getInt('powerSlow') ?? 0;
@@ -58,36 +66,42 @@ class PlayerProfile extends ChangeNotifier {
     if (best > 0 && !topScores.contains(best)) {
       _insertScore(best);
     }
-    dailyRewardDay = prefs.getString('dailyRewardDay');
+    final installedRaw = prefs.getString('installedAt');
+    if (installedAt == null && installedRaw != null) {
+      installedAt = DateTime.tryParse(installedRaw)?.toUtc();
+    }
+    claimedRewardPeriod = prefs.getString('weeklyRewardPeriod');
     vibrationEnabled = prefs.getBool('vibrationOn') ?? true;
     soundEnabled = prefs.getBool('soundOn') ?? true;
-    await claimDailyReward();
+    await claimWeeklyReward();
     notifyListeners();
   }
 
-  /// Grants one of each power-up the first time the app is opened on a calendar day.
-  Future<void> claimDailyReward() async {
-    final today = _todayKey();
-    if (_claimingDaily || dailyRewardDay == today) return;
-    _claimingDaily = true;
+  /// Grants one of each power-up once for the open weekly period.
+  ///
+  /// Nothing is granted on the day the profile is created. From the next UTC
+  /// day the set can be collected, and after that once each Monday 09:00 UTC
+  /// week, through the following Sunday.
+  Future<void> claimWeeklyReward() async {
+    final period = RewardSchedule.currentPeriod(
+      installedAt: installedAt,
+      now: now(),
+    );
+    if (_claimingReward || period == null || claimedRewardPeriod == period) {
+      return;
+    }
+    _claimingReward = true;
     extraTime += 1;
     slowDown += 1;
     panic += 1;
-    dailyRewardDay = today;
-    pendingDailyNotice = true;
+    claimedRewardPeriod = period;
+    pendingWeeklyNotice = true;
     notifyListeners();
     try {
       await _save();
     } finally {
-      _claimingDaily = false;
+      _claimingReward = false;
     }
-  }
-
-  static String _todayKey() {
-    final now = DateTime.now();
-    final month = now.month.toString().padLeft(2, '0');
-    final day = now.day.toString().padLeft(2, '0');
-    return '${now.year}-$month-$day';
   }
 
   void beginRound() {
@@ -126,11 +140,23 @@ class PlayerProfile extends ChangeNotifier {
   static int emeraldCost(PowerUp kind) {
     switch (kind) {
       case PowerUp.extraTime:
-        return 5;
+        return 10;
       case PowerUp.slowDown:
-        return 8;
+        return 5;
       case PowerUp.panic:
-        return 12;
+        return 15;
+    }
+  }
+
+  /// How many of [kind] a rewarded ad adds.
+  static int adRewardCount(PowerUp kind) {
+    switch (kind) {
+      case PowerUp.extraTime:
+        return 3;
+      case PowerUp.slowDown:
+        return 4;
+      case PowerUp.panic:
+        return 2;
     }
   }
 
@@ -211,8 +237,11 @@ class PlayerProfile extends ChangeNotifier {
     await prefs.setInt('powerPanic', panic);
     await prefs.setInt('emeralds', emeralds);
     await prefs.setString('topScores', topScores.join(','));
-    if (dailyRewardDay != null) {
-      await prefs.setString('dailyRewardDay', dailyRewardDay!);
+    if (installedAt != null) {
+      await prefs.setString('installedAt', installedAt!.toIso8601String());
+    }
+    if (claimedRewardPeriod != null) {
+      await prefs.setString('weeklyRewardPeriod', claimedRewardPeriod!);
     }
     await prefs.setBool('profileReady', true);
     await prefs.setBool('vibrationOn', vibrationEnabled);

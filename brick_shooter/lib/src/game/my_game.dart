@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 // Game configuration and state
 import 'config.dart';
+import 'hud_inset.dart';
 import 'state.dart';
 import 'player_profile.dart';
 import '../ads/rewarded_ads.dart';
@@ -218,13 +219,17 @@ class MyGame extends FlameGame with TapCallbacks {
     )..priority = 100;
     add(multiplier);
 
-    // Top banner filter - mørkt gradient over toppen for bedre kontrast med poengsummen
-    const bannerHeight = 120.0; // Høyde på banner-filteret
-    topBannerFilter = TopBannerFilter(width: w, height: bannerHeight);
+    // Keep the score, pause button, and timer below the notch or Dynamic Island.
+    final hudTop = playHudTop(statusBarInset());
+    final bannerHeight = hudTop + brickHeight + 12;
+    topBannerFilter = TopBannerFilter(
+      width: w,
+      height: bannerHeight < 120 ? 120 : bannerHeight,
+    );
     add(topBannerFilter);
 
     // Set score text position to center horizontally and size to match brick height
-    _scoreText.position = Vector2(w / 2, 24);
+    _scoreText.position = Vector2(w / 2, hudTop);
     _scoreText.anchor = Anchor.topCenter;
     _applyScoreStyle();
     add(_scoreText);
@@ -247,11 +252,11 @@ class MyGame extends FlameGame with TapCallbacks {
       fontSize: brickHeight * 0.7, // Litt mindre enn poengsummen
       textColor: const ui.Color(0xFF8BE9FF),
       x: 0, // Vil bli overskrevet
-      y: 24,
+      y: hudTop,
     );
     // Sett anchor til topRight og posisjon til høyre kant
     _timerDisplay!.anchor = Anchor.topRight;
-    _timerDisplay!.position = Vector2(w - timerMarginFromEdge, 24);
+    _timerDisplay!.position = Vector2(w - timerMarginFromEdge, hudTop);
     add(_timerDisplay!);
 
     // Legg til pause og restart knapper til venstre for poengsummen
@@ -259,9 +264,8 @@ class MyGame extends FlameGame with TapCallbacks {
     final buttonSize = brickHeight;
     const marginFromEdge = 20.0; // Margin fra venstre kant
 
-    // Poengsummen har anchor.topCenter på y=24, så senterlinjen er på y=24 + brickHeight/2
-    // Knappene skal også ha senterlinjen på samme sted
-    final buttonCenterY = 24.0 + brickHeight / 2;
+    // Poengsummen har anchor.topCenter på hudTop, så knappen deler den senterlinjen.
+    final buttonCenterY = hudTop + brickHeight / 2;
     final buttonY = buttonCenterY - buttonSize / 2; // Topp av knappen
 
     // Plasser knappene fra venstre kant med margin

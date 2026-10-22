@@ -4,8 +4,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flame/game.dart';
+
 import 'src/game/my_game.dart';
 import 'src/game/player_profile.dart';
+import 'src/notifications/weekly_reward_notification.dart';
 import 'src/purchases/emerald_shop.dart';
 import 'src/ui/overlays.dart';
 
@@ -43,6 +45,7 @@ Future<void> main() async {
   // First launch asks for ad consent, then a rewarded ad is loaded and kept ready.
   WidgetsBinding.instance.addPostFrameCallback((_) {
     unawaited(game.rewardedAds.initialize());
+    unawaited(WeeklyRewardNotifications.sync(profile));
   });
 }
 
@@ -80,7 +83,10 @@ class _DailyRewardWatcherState extends State<_DailyRewardWatcher>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      unawaited(widget.profile.claimDailyReward());
+      unawaited(() async {
+        await widget.profile.claimWeeklyReward();
+        await WeeklyRewardNotifications.sync(widget.profile);
+      }());
       widget.onResume?.call();
     } else if (state == AppLifecycleState.paused) {
       widget.onPause?.call();

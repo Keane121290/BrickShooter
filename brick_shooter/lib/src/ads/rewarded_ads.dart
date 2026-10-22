@@ -7,8 +7,6 @@ import 'ad_ids.dart';
 import 'ios_ad_consent.dart';
 
 class RewardedPowerAds extends ChangeNotifier {
-  static const rewardCount = 5;
-
   RewardedAd? _ad;
   var _initialized = false;
   var _loading = false;
