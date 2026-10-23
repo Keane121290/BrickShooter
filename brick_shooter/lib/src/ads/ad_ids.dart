@@ -1,9 +1,8 @@
 import 'package:flutter/foundation.dart';
 
 class AdIds {
-  /// Real rewarded units from AdMob. Not requested while [useTestAds] is true,
-  /// so development traffic stays on Google's test inventory.
-  static const useTestAds = true;
+  /// Live AdMob units. Keep this false in store builds.
+  static const useTestAds = false;
 
   static const _androidRewarded = 'ca-app-pub-3790932559169878/2272614508';
   static const _iosRewarded = 'ca-app-pub-3790932559169878/8868058420';
